@@ -6,110 +6,127 @@ import pandas as pd
 # 1. Configurazione
 st.set_page_config(page_title="Upload Mass Results", layout="wide", page_icon="🏆")
 
+# Connessione (Assicurati che i secrets siano corretti)
 url = st.secrets["SUPABASE_URL"]
 key = st.secrets["SUPABASE_KEY"]
 supabase = create_client(url, key)
 
-def parse_results_compact(text):
-    # Rimuoviamo i ritorni a capo per trattarlo come un unico blocco di testo
-    flat_text = text.replace('\n', ' ').strip()
-    # Puliamo spazi multipli
-    flat_text = re.sub(r'\s+', ' ', flat_text)
-    
+def clean_and_parse(raw_text):
+    # Dividiamo il testo in linee e puliamo spazi extra
+    lines = [l.strip() for l in raw_text.split('\n') if l.strip()]
     parsed_data = []
-    last_time = "0:00:00"
     
-    # Identifichiamo i DNF separatamente prima di processare la classifica
-    # Perché spesso sono in fondo e non hanno un numero progressivo
-    main_part = flat_text.split("DNF")[0]
-    dnf_part = "DNF" + "DNF".join(flat_text.split("DNF")[1:]) if "DNF" in flat_text else ""
-
-    # --- PARSING CLASSIFICA ---
-    # Logica: Cerchiamo (Rank) (Bib) (Testo) 
-    # Usiamo un'espressione che "guarda avanti" per trovare il numero successivo
-    # Ma attenzione: il rank aumenta di 1 ogni volta.
-    
-    current_rank = 1
-    while True:
-        # Cerchiamo l'inizio del rank corrente (es: "1 ")
-        # Seguito dal Bib (2 o 3 cifre)
-        # Seguito da tutto fino al rank successivo (es: " 2 ") o alla fine del testo
-        next_rank = current_rank + 1
-        pattern = rf'({current_rank})\s*(\d{{1,3}})\s+(.*?)(?=\s+{next_rank}\s+\d+|$)'
+    i = 0
+    while i < len(lines):
+        line = lines[i]
         
-        match = re.search(pattern, main_part)
-        if not match:
-            break
-            
-        rank = match.group(1)
-        bib = match.group(2)
-        content = match.group(3).strip()
-        
-        # Estrazione tempo dalla fine della stringa content
-        # Cerchiamo ,, o un formato orario (es: 3:48:27 o 0:11)
-        time_match = re.search(r'(,,|\d{1,2}:\d{2}(?::\d{2})?)$', content)
-        
-        if time_match:
-            gap = time_match.group(1)
-            if rank == "1":
-                gap = "0:00:00"
-            elif gap == ",,":
-                gap = last_time
+        # --- CASO DNF ---
+        if "DNF" in line.upper():
+            # Spesso il formato è: DNF / Numero / Nome
+            bib = ""
+            name = "Sconosciuto"
+            if i + 1 < len(lines) and lines[i+1].isdigit():
+                bib = lines[i+1]
+                name = lines[i+2] if i+2 < len(lines) else "Sconosciuto"
+                i += 3
             else:
-                last_time = gap # Memorizziamo per i successivi ,,
+                name = lines[i+1] if i+1 < len(lines) else "Sconosciuto"
+                i += 2
+            parsed_data.append({"rank": "DNF", "bib": bib, "full_info": name, "gap": "-"})
+            continue
+
+        # --- CASO CLASSIFICA (Rank Numerico) ---
+        # Se la riga è un numero, è probabilmente il RANK
+        if line.isdigit() and len(line) < 4:
+            rank = line
+            bib = ""
+            name_info = ""
+            gap = "0:00:00"
             
-            # Puliamo il nome/team togliendo il tempo e i punti UCI finali
-            clean_info = re.sub(r'\d+\s+\d+\s+(,,|\d{1,2}:\d{2}(?::\d{2})?)$', '', content).strip()
-        else:
-            gap = "st" if rank != "1" else "0:00:00"
-            clean_info = content
-
-        parsed_data.append({
-            "rank": rank,
-            "bib": bib,
-            "full_info": clean_info,
-            "gap": gap
-        })
-        current_rank += 1
-
-    # --- PARSING DNF ---
-    if dnf_part:
-        dnf_matches = re.findall(r'DNF\s*(\d+)\s+(.*?)(?=DNF|$)', dnf_part)
-        for d_bib, d_info in dnf_matches:
+            # Avanziamo per cercare BIB e NOME
+            i += 1
+            if i < len(lines):
+                # Se la riga dopo il rank è un numero, è il BIB (pettorale)
+                if lines[i].isdigit():
+                    bib = lines[i]
+                    i += 1
+                
+                # La riga successiva DEVE essere il nome dell'atleta
+                if i < len(lines):
+                    name_info = lines[i]
+                    
+                    # Controlliamo se nelle righe successive c'è il Team o il Tempo
+                    # Solitamente il tempo contiene ":" o ",,"
+                    look_ahead = 1
+                    while i + look_ahead < len(lines):
+                        next_l = lines[i + look_ahead]
+                        # Se troviamo il rank successivo (un numero piccolo), ci fermiamo
+                        if next_l.isdigit() and len(next_l) < 4:
+                            break
+                        # Se è un tempo, lo salviamo come GAP
+                        if ":" in next_l or ",," in next_l:
+                            gap = next_l
+                        # Altrimenti lo aggiungiamo alle info (Team, UCI points, ecc)
+                        else:
+                            name_info += f" {next_l}"
+                        look_ahead += 1
+                    
+                    i += (look_ahead - 1)
+            
+            # Pulizia finale del nome (rimuoviamo numeri di punti UCI incollati)
+            name_info = re.sub(r'\d{2,}\s*$', '', name_info).strip()
+            
             parsed_data.append({
-                "rank": "DNF",
-                "bib": d_bib,
-                "full_info": d_info.strip(),
-                "gap": ""
+                "rank": rank,
+                "bib": bib,
+                "full_info": name_info,
+                "gap": gap
             })
-            
+        
+        i += 1
     return parsed_data
 
 # --- INTERFACCIA ---
-st.title("🏆 Risultati Mobile-Ready")
+st.title("🏆 Caricamento Risultati (Parser Avanzato)")
 
 try:
+    # Caricamento gare per il selectbox
     races = supabase.table("dim_race").select("id_race, name").execute().data
     race_options = {r['name']: r['id_race'] for r in races}
-    sel_race = st.selectbox("Seleziona gara:", list(race_options.keys()))
+    sel_race = st.selectbox("Seleziona la gara di riferimento:", list(race_options.keys()))
     
-    input_text = st.text_area("Incolla il blocco di testo qui:", height=350)
+    st.info("💡 Incolla il testo così come viene copiato dal sito mobile (una colonna lunga).")
+    input_text = st.text_area("Copia e incolla qui:", height=300)
 
-    if input_text and st.button("Elabora Flusso Dati 🧪"):
-        results = parse_results_compact(input_text)
+    if input_text and st.button("Analizza Flusso Dati 🧪", use_container_width=True):
+        results = clean_and_parse(input_text)
         if results:
-            df = pd.DataFrame(results)
-            st.session_state.results_df = df
-            st.success(f"Analisi completata! Processati {len(results)} elementi.")
+            st.session_state.results_df = pd.DataFrame(results)
+            st.success(f"Analisi completata! Trovati {len(results)} atleti.")
+        else:
+            st.error("Non sono riuscito a leggere i dati. Controlla il formato.")
 
     if 'results_df' in st.session_state:
-        st.table(st.session_state.results_df)
+        st.subheader("Verifica i dati estratti")
+        # Usiamo data_editor così puoi correggere i nomi o i tempi a mano!
+        edited_df = st.data_editor(
+            st.session_state.results_df, 
+            num_rows="dynamic",
+            use_container_width=True,
+            key="result_editor"
+        )
         
-        if st.button("SALVA 🚀", type="primary"):
-            df_final = st.session_state.results_df.copy()
-            df_final['race_name'] = sel_race
-            supabase.table("stg_results").insert(df_final.to_dict(orient='records')).execute()
-            st.success("Salvataggio completato!")
+        if st.button("SALVA DEFINITIVAMENTE 🚀", type="primary", use_container_width=True):
+            # Preparazione dati per Supabase
+            data_to_save = edited_df.to_dict(orient='records')
+            # Aggiungiamo l'id_race a ogni riga
+            for row in data_to_save:
+                row['id_race'] = race_options[sel_race]
+            
+            # Inserimento (Assicurati che la tabella si chiami stg_results)
+            supabase.table("stg_results").insert(data_to_save).execute()
+            st.success("Dati inviati con successo al database!")
+            del st.session_state.results_df
 
 except Exception as e:
-    st.error(f"Errore: {e}")
+    st.error(f"Si è verificato un errore: {e}")
