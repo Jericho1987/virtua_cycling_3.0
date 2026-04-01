@@ -10,117 +10,106 @@ url = st.secrets["SUPABASE_URL"]
 key = st.secrets["SUPABASE_KEY"]
 supabase = create_client(url, key)
 
-def parse_results_v4(text):
-    lines = text.split('\n')
-    parsed_data = []
+def parse_results_compact(text):
+    # Rimuoviamo i ritorni a capo per trattarlo come un unico blocco di testo
+    flat_text = text.replace('\n', ' ').strip()
+    # Puliamo spazi multipli
+    flat_text = re.sub(r'\s+', ' ', flat_text)
     
-    current_entry = None
+    parsed_data = []
     last_time = "0:00:00"
+    
+    # Identifichiamo i DNF separatamente prima di processare la classifica
+    # Perché spesso sono in fondo e non hanno un numero progressivo
+    main_part = flat_text.split("DNF")[0]
+    dnf_part = "DNF" + "DNF".join(flat_text.split("DNF")[1:]) if "DNF" in flat_text else ""
 
-    for line in lines:
-        line = line.strip()
-        if not line: continue
-
-        # --- CASO A: Nuovo Corridore in classifica (Inizia con Rank + Bib) ---
-        new_rider_match = re.match(r'^(\d+)\s+(\d+)\s+(.*)', line)
+    # --- PARSING CLASSIFICA ---
+    # Logica: Cerchiamo (Rank) (Bib) (Testo) 
+    # Usiamo un'espressione che "guarda avanti" per trovare il numero successivo
+    # Ma attenzione: il rank aumenta di 1 ogni volta.
+    
+    current_rank = 1
+    while True:
+        # Cerchiamo l'inizio del rank corrente (es: "1 ")
+        # Seguito dal Bib (2 o 3 cifre)
+        # Seguito da tutto fino al rank successivo (es: " 2 ") o alla fine del testo
+        next_rank = current_rank + 1
+        pattern = rf'({current_rank})\s*(\d{{1,3}})\s+(.*?)(?=\s+{next_rank}\s+\d+|$)'
         
-        # --- CASO B: Ritirato (Inizia con DNF + Bib) ---
-        dnf_match = re.match(r'^DNF\s*(\d+)\s+(.*)', line, re.IGNORECASE)
-
-        if new_rider_match:
-            if current_entry: parsed_data.append(current_entry)
+        match = re.search(pattern, main_part)
+        if not match:
+            break
             
-            rank = new_rider_match.group(1)
-            bib = new_rider_match.group(2)
-            rest = new_rider_match.group(3)
-            
-            # Se è il primo, il tempo è sempre zero
-            initial_gap = "0:00:00" if rank == "1" else "st"
-            
-            current_entry = {
-                "rank": rank,
-                "bib": bib,
-                "full_info": rest,
-                "gap": initial_gap
-            }
-
-        elif dnf_match:
-            if current_entry: parsed_data.append(current_entry)
-            
-            bib_dnf = dnf_match.group(1)
-            rest_dnf = dnf_match.group(2)
-            
-            current_entry = {
-                "rank": "DNF",
-                "bib": bib_dnf,
-                "full_info": rest_dnf,
-                "gap": "" # Nessun tempo per i ritirati
-            }
-
-        elif current_entry:
-            # --- AGGIORNAMENTO INFO O TEMPO ---
-            # Cerchiamo il tempo/distacco (,, o XX:XX)
-            time_match = re.search(r'(,,|\d{1,2}:\d{2}(?::\d{2})?)$', line)
-            
-            if time_match and current_entry["rank"] != "DNF":
-                gap = time_match.group(1)
-                
-                # Se è il primo, ignoriamo il tempo trovato e mettiamo 0:00:00
-                if current_entry["rank"] == "1":
-                    current_entry["gap"] = "0:00:00"
-                elif gap == ",,":
-                    current_entry["gap"] = last_time
-                else:
-                    current_entry["gap"] = gap
-                    last_time = gap
-                
-                # Pulizia dai punti UCI (es: 400 225) prima del tempo
-                clean_extra = re.sub(r'\d+\s+\d+\s+(,,|\d{1,2}:\d{2}(?::\d{2})?)$', '', line).strip()
-                current_entry["full_info"] += " " + clean_extra
+        rank = match.group(1)
+        bib = match.group(2)
+        content = match.group(3).strip()
+        
+        # Estrazione tempo dalla fine della stringa content
+        # Cerchiamo ,, o un formato orario (es: 3:48:27 o 0:11)
+        time_match = re.search(r'(,,|\d{1,2}:\d{2}(?::\d{2})?)$', content)
+        
+        if time_match:
+            gap = time_match.group(1)
+            if rank == "1":
+                gap = "0:00:00"
+            elif gap == ",,":
+                gap = last_time
             else:
-                # Aggiungiamo testo al nome/team se non sono solo numeri (punti UCI)
-                if not re.match(r'^\d+\s+\d+$', line):
-                    current_entry["full_info"] += " " + line
+                last_time = gap # Memorizziamo per i successivi ,,
+            
+            # Puliamo il nome/team togliendo il tempo e i punti UCI finali
+            clean_info = re.sub(r'\d+\s+\d+\s+(,,|\d{1,2}:\d{2}(?::\d{2})?)$', '', content).strip()
+        else:
+            gap = "st" if rank != "1" else "0:00:00"
+            clean_info = content
 
-    if current_entry:
-        parsed_data.append(current_entry)
+        parsed_data.append({
+            "rank": rank,
+            "bib": bib,
+            "full_info": clean_info,
+            "gap": gap
+        })
+        current_rank += 1
+
+    # --- PARSING DNF ---
+    if dnf_part:
+        dnf_matches = re.findall(r'DNF\s*(\d+)\s+(.*?)(?=DNF|$)', dnf_part)
+        for d_bib, d_info in dnf_matches:
+            parsed_data.append({
+                "rank": "DNF",
+                "bib": d_bib,
+                "full_info": d_info.strip(),
+                "gap": ""
+            })
             
     return parsed_data
 
 # --- INTERFACCIA ---
-st.title("🏆 Caricamento Risultati (Gara + DNF)")
+st.title("🏆 Risultati Mobile-Ready")
 
 try:
     races = supabase.table("dim_race").select("id_race, name").execute().data
     race_options = {r['name']: r['id_race'] for r in races}
-    sel_race = st.selectbox("Seleziona la gara:", list(race_options.keys()))
+    sel_race = st.selectbox("Seleziona gara:", list(race_options.keys()))
     
-    st.divider()
-    input_text = st.text_area("Incolla qui l'ordine d'arrivo (inclusi DNF):", height=400)
+    input_text = st.text_area("Incolla il blocco di testo qui:", height=350)
 
-    if input_text:
-        if st.button("Analizza Risultati 🔍"):
-            results = parse_results_v4(input_text)
-            if results:
-                st.session_state.results_df = pd.DataFrame(results)
-                st.success(f"Analisi completata: {len(results)} corridori processati.")
+    if input_text and st.button("Elabora Flusso Dati 🧪"):
+        results = parse_results_compact(input_text)
+        if results:
+            df = pd.DataFrame(results)
+            st.session_state.results_df = df
+            st.success(f"Analisi completata! Processati {len(results)} elementi.")
 
     if 'results_df' in st.session_state:
-        # Pulizia estetica spazi
-        st.session_state.results_df['full_info'] = st.session_state.results_df['full_info'].str.replace(r'\s+', ' ', regex=True)
         st.table(st.session_state.results_df)
         
-        if st.button("SALVA IN STAGING 🚀", type="primary"):
-            df_to_save = st.session_state.results_df.copy()
-            df_to_save['race_name'] = sel_race
-            records = df_to_save.to_dict(orient='records')
-            
-            try:
-                supabase.table("stg_results").insert(records).execute()
-                st.success("✅ Risultati (inclusi DNF) salvati in stg_results!")
-                # Qui potresti aggiungere la chiamata alla function rpc se ne hai una pronta
-            except Exception as e:
-                st.error(f"Errore durante il salvataggio: {e}")
+        if st.button("SALVA 🚀", type="primary"):
+            df_final = st.session_state.results_df.copy()
+            df_final['race_name'] = sel_race
+            supabase.table("stg_results").insert(df_final.to_dict(orient='records')).execute()
+            st.success("Salvataggio completato!")
 
 except Exception as e:
     st.error(f"Errore: {e}")
