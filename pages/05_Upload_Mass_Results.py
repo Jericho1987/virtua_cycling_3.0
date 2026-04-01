@@ -6,127 +6,92 @@ import pandas as pd
 # 1. Configurazione
 st.set_page_config(page_title="Upload Mass Results", layout="wide", page_icon="🏆")
 
-# Connessione (Assicurati che i secrets siano corretti)
 url = st.secrets["SUPABASE_URL"]
 key = st.secrets["SUPABASE_KEY"]
 supabase = create_client(url, key)
 
-def clean_and_parse(raw_text):
-    # Dividiamo il testo in linee e puliamo spazi extra
-    lines = [l.strip() for l in raw_text.split('\n') if l.strip()]
+def parse_ultra_compact(text):
+    # 1. Pulizia preliminare: trasformiamo tutto in una riga singola con spazi regolari
+    text = text.replace('\n', ' ')
+    text = re.sub(r'\s+', ' ', text)
+    
     parsed_data = []
     
-    i = 0
-    while i < len(lines):
-        line = lines[i]
+    # --- PARSING ARRIVATI ---
+    # Cerchiamo il pattern: (Posizione) (Pettorale) (Nome Atleta - Testo fino a tempo o posizione successiva)
+    # Esempio: "1 51 Ganna Filippo INEOS Grenadiers 4002253:48:27"
+    # Il pattern cerca: Numero -> Numero -> Testo -> (Tempo o Numero Successivo)
+    regex_winners = r'(\d{1,3})\s+(\d{1,3})\s+([A-Za-zÀ-ÿ\s\|\-\.\']+)'
+    
+    matches = re.finditer(regex_winners, text)
+    
+    last_pos = 0
+    for match in matches:
+        pos = match.group(1)
+        bib = match.group(2)
+        info = match.group(3).strip()
         
-        # --- CASO DNF ---
-        if "DNF" in line.upper():
-            # Spesso il formato è: DNF / Numero / Nome
-            bib = ""
-            name = "Sconosciuto"
-            if i + 1 < len(lines) and lines[i+1].isdigit():
-                bib = lines[i+1]
-                name = lines[i+2] if i+2 < len(lines) else "Sconosciuto"
-                i += 3
-            else:
-                name = lines[i+1] if i+1 < len(lines) else "Sconosciuto"
-                i += 2
-            parsed_data.append({"rank": "DNF", "bib": bib, "full_info": name, "gap": "-"})
-            continue
-
-        # --- CASO CLASSIFICA (Rank Numerico) ---
-        # Se la riga è un numero, è probabilmente il RANK
-        if line.isdigit() and len(line) < 4:
-            rank = line
-            bib = ""
-            name_info = ""
-            gap = "0:00:00"
-            
-            # Avanziamo per cercare BIB e NOME
-            i += 1
-            if i < len(lines):
-                # Se la riga dopo il rank è un numero, è il BIB (pettorale)
-                if lines[i].isdigit():
-                    bib = lines[i]
-                    i += 1
-                
-                # La riga successiva DEVE essere il nome dell'atleta
-                if i < len(lines):
-                    name_info = lines[i]
-                    
-                    # Controlliamo se nelle righe successive c'è il Team o il Tempo
-                    # Solitamente il tempo contiene ":" o ",,"
-                    look_ahead = 1
-                    while i + look_ahead < len(lines):
-                        next_l = lines[i + look_ahead]
-                        # Se troviamo il rank successivo (un numero piccolo), ci fermiamo
-                        if next_l.isdigit() and len(next_l) < 4:
-                            break
-                        # Se è un tempo, lo salviamo come GAP
-                        if ":" in next_l or ",," in next_l:
-                            gap = next_l
-                        # Altrimenti lo aggiungiamo alle info (Team, UCI points, ecc)
-                        else:
-                            name_info += f" {next_l}"
-                        look_ahead += 1
-                    
-                    i += (look_ahead - 1)
-            
-            # Pulizia finale del nome (rimuoviamo numeri di punti UCI incollati)
-            name_info = re.sub(r'\d{2,}\s*$', '', name_info).strip()
+        # Se la posizione è coerente (es: 1, 2, 3...) la prendiamo
+        if int(pos) == last_pos + 1 or last_pos == 0:
+            # Pulizia: se nel nome sono finiti pezzi di numeri (es. punti UCI), li togliamo
+            clean_name = re.sub(r'\d+.*$', '', info).strip()
             
             parsed_data.append({
-                "rank": rank,
+                "rank": pos,
                 "bib": bib,
-                "full_info": name_info,
-                "gap": gap
+                "full_info": clean_name,
+                "gap": "0:00:00" # Il gap lo sistemerai a mano nell'editor se serve
             })
-        
-        i += 1
+            last_pos = int(pos)
+
+    # --- PARSING DNF ---
+    # Cerca "DNF" seguito dal numero pettorale e il nome
+    dnf_matches = re.findall(r'DNF\s*(\d+)\s+([A-Za-zÀ-ÿ\s\|\-\.\']+?)(?=DNF|\d{1,3}\s+\d{1,3}|$)', text)
+    for d_bib, d_name in dnf_matches:
+        parsed_data.append({
+            "rank": "DNF",
+            "bib": d_bib,
+            "full_info": d_name.strip(),
+            "gap": "-"
+        })
+            
     return parsed_data
 
 # --- INTERFACCIA ---
-st.title("🏆 Caricamento Risultati (Parser Avanzato v2)")
+st.title("🏆 Parser Risultati Mobile v4")
 
 try:
-    # Caricamento gare per il selectbox
+    # Caricamento gare
     races = supabase.table("dim_race").select("id_race, name").execute().data
     race_options = {r['name']: r['id_race'] for r in races}
-    sel_race = st.selectbox("Seleziona la gara di riferimento:", list(race_options.keys()))
+    sel_race = st.selectbox("Gara:", list(race_options.keys()))
     
-    st.info("💡 Incolla il testo così come viene copiato dal sito mobile (una colonna lunga).")
-    input_text = st.text_area("Copia e incolla qui:", height=300)
+    input_text = st.text_area("Incolla qui il testo (anche se tutto attaccato):", height=300)
 
-    if input_text and st.button("Analizza Flusso Dati 🧪", use_container_width=True):
-        results = clean_and_parse(input_text)
-        if results:
-            st.session_state.results_df = pd.DataFrame(results)
-            st.success(f"Analisi completata! Trovati {len(results)} atleti.")
+    if input_text and st.button("Elabora Risultati 🧪"):
+        data = parse_ultra_compact(input_text)
+        if data:
+            st.session_state.results_df = pd.DataFrame(data)
+            st.success(f"Trovati {len(data)} atleti!")
         else:
-            st.error("Non sono riuscito a leggere i dati. Controlla il formato.")
+            st.error("Nessun dato trovato. Prova a copiare una porzione più pulita.")
 
     if 'results_df' in st.session_state:
-        st.subheader("Verifica i dati estratti")
-        # Usiamo data_editor così puoi correggere i nomi o i tempi a mano!
+        # L'EDITOR è fondamentale qui per correggere i "residui" del parsing
         edited_df = st.data_editor(
-            st.session_state.results_df, 
+            st.session_state.results_df,
             num_rows="dynamic",
-            use_container_width=True,
-            key="result_editor"
+            use_container_width=True
         )
         
-        if st.button("SALVA DEFINITIVAMENTE 🚀", type="primary", use_container_width=True):
-            # Preparazione dati per Supabase
-            data_to_save = edited_df.to_dict(orient='records')
-            # Aggiungiamo l'id_race a ogni riga
-            for row in data_to_save:
+        if st.button("SALVA SU DATABASE 🚀"):
+            final_data = edited_df.to_dict(orient='records')
+            for row in final_data:
                 row['id_race'] = race_options[sel_race]
             
-            # Inserimento (Assicurati che la tabella si chiami stg_results)
-            supabase.table("stg_results").insert(data_to_save).execute()
-            st.success("Dati inviati con successo al database!")
+            supabase.table("stg_results").insert(final_data).execute()
+            st.success("Salvataggio completato!")
             del st.session_state.results_df
 
 except Exception as e:
-    st.error(f"Si è verificato un errore: {e}")
+    st.error(f"Errore: {e}")
