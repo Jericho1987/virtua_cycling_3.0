@@ -87,7 +87,7 @@ def clean_and_parse(raw_text):
     return parsed_data
 
 # --- INTERFACCIA ---
-st.title("🏆 Caricamento Risultati (Parser Avanzato)")
+st.title("🏆 Caricamento Risultati (Parser Avanzato v2)")
 
 try:
     # Caricamento gare per il selectbox
