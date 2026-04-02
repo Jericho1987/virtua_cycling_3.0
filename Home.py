@@ -74,17 +74,60 @@ try:
                         st.session_state.gara_selezionata_id = p['id_race']
                         st.session_state.tappa_selezionata_id = p['id_stage']
                         st.switch_page("pages/01_Inserimento.py")
-            else:
-                st.success("Tutti i pick sono completati! ✅")
 
-    with col_right:
-        st.subheader("🏆 Ultimi Risultati")
-        with st.container(border=True):
-            if last_data:
-                for l in last_data:
-                    st.write(f"✅ {l['race_name']}")
-                if st.button("VEDI CLASSIFICHE 📊", use_container_width=True):
-                    st.switch_page("pages/02_Classifiche.py")
+                else: 
 
-except Exception as e:
-    st.error(f"Errore nel caricamento: {e}")
+                    st.success("Pick completati! ✅")
+
+
+            st.caption("🏁 IN CORSO")
+
+            with st.container(border=True):
+
+                if current_data:
+
+                    for c in current_data:
+
+                        st.write(f"🚴‍♂️ {c['race_name']} (T{c['stage']})")
+
+                else: 
+
+                    st.info("Nessuna corsa attiva.")
+
+
+        with col_right:
+
+            st.caption("🏆 ULTIMI RISULTATI")
+
+            with st.container(border=True):
+
+                if last_data:
+
+                    for l in last_data:
+
+                        st.write(f"✅ {l['race_name']}")
+
+                    if st.button("CLASSIFICHE 🏆", use_container_width=True, type="primary"):
+
+                        st.switch_page("pages/02_Classifiche.py")
+
+
+            st.caption("📅 PROSSIME GARE")
+
+            with st.container(border=True):
+
+                if upcoming_data:
+
+                    for u in upcoming_data:
+
+                        st.markdown(f'<div class="race-row"><span>📅 {u["race_name"]}</span></div>', unsafe_allow_html=True)
+
+                else:
+
+                    st.write("Nessuna gara in programma.")
+
+                    
+
+    except Exception as e:
+
+        st.error(f"Errore nel caricamento dati: {e}") 
