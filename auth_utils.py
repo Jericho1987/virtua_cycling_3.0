@@ -11,7 +11,15 @@ def check_auth():
     
     st.markdown("""
         <style>
-        [data-testid="stSidebar"], [data-testid="stSidebarCollapsedControl"] { display: flex !important; }
+        [data-testid="stSidebar"], [data-testid="stSidebarCollapsedControl"] { 
+            display: flex !important; 
+        }
+        
+        /* Rende l'header trasparente ma mantiene l'hamburger menu cliccabile */
+        header[data-testid="stHeader"] {
+            background-color: rgba(0,0,0,0) !important;
+        }
+
         .sidebar-user-box { 
             display: flex; 
             align-items: center; 
