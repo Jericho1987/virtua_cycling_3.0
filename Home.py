@@ -86,7 +86,18 @@ if st.session_state.id_user_loggato is None:
 check_auth()      # Protezione e CSS personalizzato
 render_sidebar()  # Navigazione laterale
 
-st.title(f"👋 Ciao {st.session_state.nome_user_loggato}!")
+# --- HERO SECTION ---
+logo_url = "https://github.com/Jericho1987/virtua_cycling_3.0/blob/main/logo_pwa.png?raw=true"
+
+st.markdown(f"""
+    <div style="background-color: #1e1e1e; padding: 25px; border-radius: 20px; border-left: 8px solid #ff4b4b; margin-bottom: 30px; display: flex; align-items: center;">
+        <img src="{logo_url}" style="width: 80px; margin-right: 25px;">
+        <div>
+            <h1 style="margin: 0; font-size: 2.2rem; color: white;">👋 Ciao, {st.session_state.nome_user_loggato}!</h1>
+            <p style="margin: 5px 0 0 0; color: #b0b0b0; font-size: 1.1rem;">Bentornato in gruppo. Controlla i tuoi pick e preparati alla volata!</p>
+        </div>
+    </div>
+""", unsafe_allow_html=True)
 
 # Griglia Dashboard
 try:
@@ -123,10 +134,9 @@ try:
             else:
                 st.info("Nessun risultato recente.")
 
-    st.markdown("<br>", unsafe_allow_html=True) # Spazio per stacco visivo
+    st.markdown("<br>", unsafe_allow_html=True) 
 
     # --- RIGA 2: IN CORSO E PROSSIME GARE ---
-    # Creiamo nuove colonne per forzare l'allineamento orizzontale dei titoli
     col_bot_left, col_bot_right = st.columns(2, gap="medium")
 
     with col_bot_left:
