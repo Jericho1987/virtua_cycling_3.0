@@ -1,6 +1,29 @@
 [theme]
-primaryColor = "#e74c3c"
+# Rosso acceso per i pulsanti (es. "ACCEDI", "CLASSIFICHE", "Vai")
+primaryColor = "#ff4b4b"
+
+# Sfondo scuro profondo per l'intera app
 backgroundColor = "#121212"
+
+# Colore per sidebar e card (leggermente più chiaro dello sfondo)
 secondaryBackgroundColor = "#1e1e1e"
+
+# Testo principale bianco puro
 textColor = "#ffffff"
+
+# Font moderno senza grazie
 font = "sans serif"
+
+[server]
+headless = true
+enableCORS = false
+enableXsrfProtection = false
+
+[browser]
+# Nasconde il menu in alto a destra e le statistiche di utilizzo
+gatherUsageStats = false
+showToolbarCallback = false
+
+
+[client]
+showSidebarNavigation = false
