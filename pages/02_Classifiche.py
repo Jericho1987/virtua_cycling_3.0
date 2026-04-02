@@ -1,8 +1,13 @@
 import streamlit as st
 import pandas as pd
 from supabase import create_client
+from auth_utils import check_auth, render_sidebar # <--- 1. AGGIUNGI QUESTA RIGA
 
 st.set_page_config(page_title="Classifiche e Risultati", layout="wide", page_icon="🏆")
+
+# --- PROTEZIONE E SIDEBAR ---
+check_auth()      # <--- 2. AGGIUNGI QUESTA (Blocca i non loggati e mette il CSS)
+render_sidebar()  # <--- 3. AGGIUNGI QUESTA (Disegna i link e l'area utente)
 
 if not st.session_state.get('id_user_loggato'):
     st.switch_page("Home.py")
