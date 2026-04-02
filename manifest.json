@@ -1,4 +1,20 @@
-{
+# --- 3. LOGICA PWA & CSS CUSTOM ---
+st.markdown(f"""
+    <link rel="manifest" href="/manifest.json">
+    
+    <meta name="apple-mobile-web-app-title" content="{NOME_APP}">
+    <link rel="apple-touch-icon" href="{URL_LOGO}">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+    <script>
+      if ('serviceWorker' in navigator) {{
+        navigator.serviceWorker.register('/sw.js');
+      }}
+    </script>
+    
+    <style>
+    /* ... resto del tuo CSS uguale ... */{
   "name": "Virtua Cycling",
   "short_name": "VirtuaCycling",
   "description": "FantaCiclismo Dashboard",
