@@ -46,7 +46,7 @@ def check_auth():
     """, unsafe_allow_html=True)
 
 def render_sidebar():
-    """Disegna la sidebar manuale."""
+    """Disegna la sidebar manuale con controllo admin."""
     with st.sidebar:
         # Navigazione Principale
         st.page_link("Home.py", label="Home", icon="🏠")
@@ -64,22 +64,18 @@ def render_sidebar():
             </div>
         """, unsafe_allow_html=True)
         
-        # Tasti Modifica e Logout (English + Icone uniformate)
-        c1, c2 = st.columns([0.4, 0.6]) # Proporzione più bilanciata per uniformare le icone
+        # Tasti Modifica e Logout
+        c1, c2 = st.columns([0.4, 0.6]) 
         with c1:
             if st.button("⚙️", key="btn_settings", use_container_width=True, help="Settings"):
                 st.switch_page("pages/07_modifica_profilo.py")
         with c2:
             if st.button("Logout 🚪", key="btn_logout", use_container_width=True):
-                st.session_state.id_user_loggato = None
-                st.session_state.nome_user_loggato = None
+                st.session_state.clear() # Pulisce tutto, incluso is_admin
                 st.rerun()
 
-        st.markdown("---")
-        
-        # Sezione Amministrazione
-        st.markdown('<p class="side-header" style="color: #ff4b4b;">🛠️ Amministrazione</p>', unsafe_allow_html=True)
-        st.page_link("pages/03_Gestione_Risultati.py", label="Risultati", icon="📊")
-        st.page_link("pages/04_Upload_Startlist.py", label="Startlist", icon="📑")
-        st.page_link("pages/05_Upload_Mass_Results.py", label="Mass Results", icon="🗂️")
-        st.page_link("pages/06_insert_pick_massive.py", label="Massive Pick", icon="⚡")
+        # Sezione Amministrazione (Solo se l'utente è admin)
+        if st.session_state.get('is_admin', False):
+            st.markdown("---")
+            st.markdown('<p class="side-header" style="color: #ff4b4b;">🛠️ Amministrazione</p>', unsafe_allow_html=True)
+            st.page_link("pages
