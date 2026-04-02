@@ -94,7 +94,7 @@ def render_sidebar():
     """Disegna la sidebar con lo stile aggiornato."""
     with st.sidebar:
         st.page_link("Home.py", label="Dashboard", icon="🏠")
-        st.page_link("pages/01_Inserimento.py", label="I tuoi Pick", icon="✍️")
+        st.page_link("pages/01_Inserimento.py", label="Pick", icon="✍️")
         st.page_link("pages/02_Classifiche.py", label="Leaderboard", icon="🏆")
         
         st.markdown('<p class="side-header">Account</p>', unsafe_allow_html=True)
