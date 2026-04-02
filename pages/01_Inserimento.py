@@ -1,15 +1,20 @@
 import streamlit as st
 from supabase import create_client
+from auth_utils import check_auth, render_sidebar # Importi le tue funzioni
 
+# 1. Configurazione pagina
 st.set_page_config(page_title="Inserimento Formazione", layout="wide", page_icon="📝")
 
-if not st.session_state.get('id_user_loggato'):
-    st.switch_page("Home.py")
+# 2. Protezione e Sidebar (Usa le funzioni di auth_utils)
+check_auth()      # Blocca se non loggato e imposta il CSS
+render_sidebar()  # Disegna la sidebar coerente
 
+# 3. Connessione dati
 url = st.secrets["SUPABASE_URL"]
 key = st.secrets["SUPABASE_KEY"]
 supabase = create_client(url, key)
 
+# 4. Contenuto della pagina
 st.title("📝 Inserimento Formazione")
 
 user_id = st.session_state.id_user_loggato
