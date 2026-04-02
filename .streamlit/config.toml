@@ -18,12 +18,13 @@ font = "sans serif"
 headless = true
 enableCORS = false
 enableXsrfProtection = false
+# Stringa segreta per crittografare i cookie di sessione (2 ore di persistenza)
+cookieSecret = "vX_8n2-M9k_RpL4z_Q1w-Tb6yF9_Gj5-Dc1s"
 
 [browser]
 # Nasconde il menu in alto a destra e le statistiche di utilizzo
 gatherUsageStats = false
 showToolbarCallback = false
-
 
 [client]
 showSidebarNavigation = false
