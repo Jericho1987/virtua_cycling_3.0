@@ -1,7 +1,7 @@
 import streamlit as st
 from supabase import create_client
-import pandas as pd
 import re
+import pandas as pd
 
 # 1. Configurazione
 st.set_page_config(page_title="Upload Mass Results", layout="wide", page_icon="🏆")
@@ -10,99 +10,117 @@ url = st.secrets["SUPABASE_URL"]
 key = st.secrets["SUPABASE_KEY"]
 supabase = create_client(url, key)
 
-def simple_line_parser(raw_text):
-    # Dividiamo il testo riga per riga, pulendo gli spazi
-    lines = [l.strip() for l in raw_text.split('\n') if l.strip()]
+def parse_results_v4(text):
+    lines = text.split('\n')
     parsed_data = []
     
-    i = 0
-    while i < len(lines):
-        line = lines[i]
-        
-        # GESTIONE DNF
-        if "DNF" in line.upper():
-            bib = ""
-            if i+1 < len(lines) and lines[i+1].isdigit():
-                bib = lines[i+1]
-                name = lines[i+2] if i+2 < len(lines) else "Sconosciuto"
-                i += 3
-            else:
-                name = lines[i+1] if i+1 < len(lines) else "Sconosciuto"
-                i += 2
-            parsed_data.append({"rank": "DNF", "bib": bib, "full_info": name, "gap": "-"})
-            continue
+    current_entry = None
+    last_time = "0:00:00"
 
-        # GESTIONE CLASSIFICA (Se la riga è un numero <= 200 è una posizione)
-        if line.isdigit() and int(line) < 500:
-            rank = line
-            bib = ""
-            name_parts = []
-            gap = "0:00:00"
+    for line in lines:
+        line = line.strip()
+        if not line: continue
+
+        # --- CASO A: Nuovo Corridore in classifica (Inizia con Rank + Bib) ---
+        new_rider_match = re.match(r'^(\d+)\s+(\d+)\s+(.*)', line)
+        
+        # --- CASO B: Ritirato (Inizia con DNF + Bib) ---
+        dnf_match = re.match(r'^DNF\s*(\d+)\s+(.*)', line, re.IGNORECASE)
+
+        if new_rider_match:
+            if current_entry: parsed_data.append(current_entry)
             
-            i += 1 # Passiamo alla riga successiva
+            rank = new_rider_match.group(1)
+            bib = new_rider_match.group(2)
+            rest = new_rider_match.group(3)
             
-            # Esaminiamo le righe successive finché non troviamo la PROSSIMA posizione
-            while i < len(lines):
-                current_l = lines[i]
-                
-                # Se la riga successiva è la posizione dopo (es. siamo alla 1 e troviamo "2")
-                if current_l.isdigit() and int(current_l) == int(rank) + 1:
-                    break # Passiamo al prossimo corridore
-                
-                # Se è un tempo (contiene : o ,,)
-                if ":" in current_l or ",," in current_l:
-                    gap = current_l
-                # Se è il pettorale (numero che segue immediatamente il rank)
-                elif current_l.isdigit() and not name_parts:
-                    bib = current_l
-                # Altrimenti è parte del nome o del team
-                else:
-                    # Evitiamo di aggiungere i punti UCI (numeri singoli piccoli in fondo)
-                    if not (current_l.isdigit() and len(current_l) < 3):
-                        name_parts.append(current_l)
-                
-                i += 1
+            # Se è il primo, il tempo è sempre zero
+            initial_gap = "0:00:00" if rank == "1" else "st"
             
-            parsed_data.append({
+            current_entry = {
                 "rank": rank,
                 "bib": bib,
-                "full_info": " ".join(name_parts),
-                "gap": gap
-            })
-            # Non incrementiamo i qui perché lo facciamo nel loop esterno o siamo già al break
-            continue
+                "full_info": rest,
+                "gap": initial_gap
+            }
+
+        elif dnf_match:
+            if current_entry: parsed_data.append(current_entry)
             
-        i += 1
+            bib_dnf = dnf_match.group(1)
+            rest_dnf = dnf_match.group(2)
+            
+            current_entry = {
+                "rank": "DNF",
+                "bib": bib_dnf,
+                "full_info": rest_dnf,
+                "gap": "" # Nessun tempo per i ritirati
+            }
+
+        elif current_entry:
+            # --- AGGIORNAMENTO INFO O TEMPO ---
+            # Cerchiamo il tempo/distacco (,, o XX:XX)
+            time_match = re.search(r'(,,|\d{1,2}:\d{2}(?::\d{2})?)$', line)
+            
+            if time_match and current_entry["rank"] != "DNF":
+                gap = time_match.group(1)
+                
+                # Se è il primo, ignoriamo il tempo trovato e mettiamo 0:00:00
+                if current_entry["rank"] == "1":
+                    current_entry["gap"] = "0:00:00"
+                elif gap == ",,":
+                    current_entry["gap"] = last_time
+                else:
+                    current_entry["gap"] = gap
+                    last_time = gap
+                
+                # Pulizia dai punti UCI (es: 400 225) prima del tempo
+                clean_extra = re.sub(r'\d+\s+\d+\s+(,,|\d{1,2}:\d{2}(?::\d{2})?)$', '', line).strip()
+                current_entry["full_info"] += " " + clean_extra
+            else:
+                # Aggiungiamo testo al nome/team se non sono solo numeri (punti UCI)
+                if not re.match(r'^\d+\s+\d+$', line):
+                    current_entry["full_info"] += " " + line
+
+    if current_entry:
+        parsed_data.append(current_entry)
+            
     return parsed_data
 
 # --- INTERFACCIA ---
-st.title("🏆 Parser Risultati (Versione Riga-per-Riga)")
+st.title("🏆 Caricamento Risultati (Gara + DNF)")
 
 try:
     races = supabase.table("dim_race").select("id_race, name").execute().data
     race_options = {r['name']: r['id_race'] for r in races}
-    sel_race = st.selectbox("Seleziona Gara:", list(race_options.keys()))
+    sel_race = st.selectbox("Seleziona la gara:", list(race_options.keys()))
     
-    input_text = st.text_area("Incolla qui il testo (assicurati che i dati siano su righe diverse):", height=300)
+    st.divider()
+    input_text = st.text_area("Incolla qui l'ordine d'arrivo (inclusi DNF):", height=400)
 
-    if input_text and st.button("Elabora 🧪"):
-        data = simple_line_parser(input_text)
-        if data:
-            st.session_state.results_df = pd.DataFrame(data)
-            st.success(f"Trovati {len(data)} atleti.")
+    if input_text:
+        if st.button("Analizza Risultati 🔍"):
+            results = parse_results_v4(input_text)
+            if results:
+                st.session_state.results_df = pd.DataFrame(results)
+                st.success(f"Analisi completata: {len(results)} corridori processati.")
 
     if 'results_df' in st.session_state:
-        # Mostriamo l'editor per correggere i residui
-        edited_df = st.data_editor(st.session_state.results_df, num_rows="dynamic", use_container_width=True)
+        # Pulizia estetica spazi
+        st.session_state.results_df['full_info'] = st.session_state.results_df['full_info'].str.replace(r'\s+', ' ', regex=True)
+        st.table(st.session_state.results_df)
         
-        if st.button("SALVA SU DATABASE 🚀"):
-            final_data = edited_df.to_dict(orient='records')
-            for row in final_data:
-                row['id_race'] = race_options[sel_race]
+        if st.button("SALVA IN STAGING 🚀", type="primary"):
+            df_to_save = st.session_state.results_df.copy()
+            df_to_save['race_name'] = sel_race
+            records = df_to_save.to_dict(orient='records')
             
-            supabase.table("stg_results").insert(final_data).execute()
-            st.success("Dati salvati!")
-            del st.session_state.results_df
+            try:
+                supabase.table("stg_results").insert(records).execute()
+                st.success("✅ Risultati (inclusi DNF) salvati in stg_results!")
+                # Qui potresti aggiungere la chiamata alla function rpc se ne hai una pronta
+            except Exception as e:
+                st.error(f"Errore durante il salvataggio: {e}")
 
 except Exception as e:
     st.error(f"Errore: {e}")
