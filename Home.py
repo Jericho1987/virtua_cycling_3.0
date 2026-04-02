@@ -9,6 +9,22 @@ st.set_page_config(
     page_icon="🚴‍♂️"
 )
 
+# --- CSS PER ALLINEAMENTO SIDEBAR E RIMOZIONE SPAZI VUOTI ---
+st.markdown("""
+    <style>
+        /* Rimuove lo spazio bianco in cima alla pagina */
+        .block-container {
+            padding-top: 1rem !important;
+            padding-bottom: 0rem !important;
+        }
+        /* Rende l'header di Streamlit trasparente per guadagnare spazio */
+        header {
+            visibility: hidden;
+            height: 0px;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
 # --- 2. CONNESSIONE A SUPABASE ---
 url = st.secrets["SUPABASE_URL"]
 key = st.secrets["SUPABASE_KEY"]
@@ -82,15 +98,15 @@ if st.session_state.id_user_loggato is None:
 check_auth()
 render_sidebar()
 
-# --- HERO SECTION OTTIMIZZATA (RIDOTTA) ---
+# --- HERO SECTION ULTRA-COMPATTA ---
 logo_url = "https://github.com/Jericho1987/virtua_cycling_3.0/blob/main/logo_pwa.png?raw=true"
 
 st.markdown(f"""
-    <div style="background-color: #1e1e1e; padding: 12px 20px; border-radius: 15px; border-left: 6px solid #ff4b4b; margin-bottom: 20px; display: flex; align-items: center;">
-        <img src="{logo_url}" style="width: 65px; margin-right: 20px;">
-        <div>
-            <h2 style="margin: 0; font-size: 1.8rem; color: white; line-height: 1.2;">👋 Ciao, {st.session_state.nome_user_loggato}!</h2>
-            <p style="margin: 2px 0 0 0; color: #b0b0b0; font-size: 0.95rem;">Bentornato in gruppo. Controlla i tuoi pick e preparati alla volata!</p>
+    <div style="background-color: #1e1e1e; padding: 10px 18px; border-radius: 12px; border-left: 5px solid #ff4b4b; margin-bottom: 15px; display: flex; align-items: center;">
+        <img src="{logo_url}" style="width: 50px; margin-right: 18px;">
+        <div style="flex-grow: 1;">
+            <h3 style="margin: 0; font-size: 1.5rem; color: white; line-height: 1.1;">👋 Ciao, {st.session_state.nome_user_loggato}!</h3>
+            <p style="margin: 2px 0 0 0; color: #b0b0b0; font-size: 0.85rem;">Bentornato in gruppo. Ecco i tuoi aggiornamenti.</p>
         </div>
     </div>
 """, unsafe_allow_html=True)
