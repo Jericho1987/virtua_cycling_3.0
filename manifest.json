@@ -1,0 +1,17 @@
+{
+  "name": "Virtua Cycling",
+  "short_name": "VirtuaCycling",
+  "description": "FantaCiclismo Dashboard",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#121212",
+  "theme_color": "#121212",
+  "icons": [
+    {
+      "src": "https://github.com/Jericho1987/virtua_cycling_3.0/blob/main/virtua%20cycling%20logo%20app.png?raw=true",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
