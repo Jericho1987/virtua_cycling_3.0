@@ -1,10 +1,17 @@
 import streamlit as st
 from supabase import create_client
+from auth_utils import check_auth, render_sidebar # <--- 1. AGGIUNGI QUESTA RIGA
+
 import re
 import pandas as pd
 
 # 1. Configurazione
 st.set_page_config(page_title="Upload Mass Results", layout="wide", page_icon="🏆")
+
+# --- PROTEZIONE E SIDEBAR ---
+check_auth()      # <--- 2. AGGIUNGI QUESTA (Blocca i non loggati e mette il CSS)
+render_sidebar()  # <--- 3. AGGIUNGI QUESTA (Disegna i link e l'area utente)
+
 
 url = st.secrets["SUPABASE_URL"]
 key = st.secrets["SUPABASE_KEY"]
