@@ -1,20 +1,4 @@
-# --- 3. LOGICA PWA & CSS CUSTOM ---
-st.markdown(f"""
-    <link rel="manifest" href="/manifest.json">
-    
-    <meta name="apple-mobile-web-app-title" content="{NOME_APP}">
-    <link rel="apple-touch-icon" href="{URL_LOGO}">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-
-    <script>
-      if ('serviceWorker' in navigator) {{
-        navigator.serviceWorker.register('/sw.js');
-      }}
-    </script>
-    
-    <style>
-    /* ... resto del tuo CSS uguale ... */{
+{
   "name": "Virtua Cycling",
   "short_name": "VirtuaCycling",
   "description": "FantaCiclismo Dashboard",
@@ -26,6 +10,12 @@ st.markdown(f"""
     {
       "src": "https://github.com/Jericho1987/virtua_cycling_3.0/blob/main/virtua%20cycling%20logo%20app.png?raw=true",
       "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://github.com/Jericho1987/virtua_cycling_3.0/blob/main/virtua%20cycling%20logo%20app.png?raw=true",
+      "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     }
