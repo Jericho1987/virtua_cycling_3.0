@@ -45,6 +45,10 @@ if st.session_state.id_user_loggato is None:
                             "email": email_input, 
                             "password": password_input
                         })
+                        
+                        # --- SALVATAGGIO SESSIONE PER MODIFICA PROFILO ---
+                        st.session_state.supabase_session = auth_res.session
+                        
                         user_id = auth_res.user.id
                         
                         # Recupero nickname dalla tabella utenti
