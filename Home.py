@@ -46,12 +46,9 @@ if st.session_state.id_user_loggato is None:
                             "password": password_input
                         })
                         
-                        # --- SALVATAGGIO SESSIONE PER MODIFICA PROFILO ---
                         st.session_state.supabase_session = auth_res.session
-                        
                         user_id = auth_res.user.id
                         
-                        # Recupero nickname dalla tabella utenti
                         user_info = (supabase.table("dim_user")
                                      .select("nickname")
                                      .eq("id_user", user_id)
@@ -72,14 +69,11 @@ if st.session_state.id_user_loggato is None:
                 
                 if st.form_submit_button("REGISTRATI ✨", use_container_width=True):
                     try:
-                        # Registrazione su Supabase Auth
                         supabase.auth.sign_up({
                             "email": new_email,
                             "password": new_password,
                             "options": {
-                                "data": {
-                                    "nickname": new_nickname
-                                }
+                                "data": { "nickname": new_nickname }
                             }
                         })
                         st.success("Registrazione effettuata! Ora puoi accedere.")
@@ -92,23 +86,21 @@ if st.session_state.id_user_loggato is None:
 check_auth()      # Protezione e CSS personalizzato
 render_sidebar()  # Navigazione laterale
 
-# Intestazione utente
 st.title(f"👋 Ciao {st.session_state.nome_user_loggato}!")
 
 # Griglia Dashboard
 try:
-    # Caricamento dati dalle View di Supabase
+    # Caricamento dati
     pick_data = supabase.table("view_stage_to_pick").select("*").execute().data
     current_data = supabase.table("view_stage_current").select("*").execute().data
     last_data = supabase.table("view_stage_last_results").select("*").execute().data
     upcoming_data = supabase.table("view_races_upcoming").select("*").execute().data
 
-    # Layout a due colonne
-    col_left, col_right = st.columns(2, gap="medium")
+    # --- RIGA 1: OPERATIVITÀ E RISULTATI ---
+    col_top_left, col_top_right = st.columns(2, gap="medium")
 
-    # --- COLONNA SINISTRA: OPERATIVITÀ ---
-    with col_left:
-        st.subheader("✍️ Pick da fare") # Titolo principale allineato
+    with col_top_left:
+        st.subheader("✍️ Pick da fare")
         with st.container(border=True):
             if pick_data:
                 for p in pick_data:
@@ -121,7 +113,24 @@ try:
             else:
                 st.success("Pick completati! ✅")
 
-        st.caption("🏁 IN CORSO")
+    with col_top_right:
+        st.subheader("🏆 Ultimi risultati")
+        with st.container(border=True):
+            if last_data:
+                for l in last_data:
+                    st.write(f"✅ {l['race_name']}")
+                st.button("CLASSIFICHE 🏆", use_container_width=True, type="primary", on_click=lambda: st.switch_page("pages/02_Classifiche.py"))
+            else:
+                st.info("Nessun risultato recente.")
+
+    st.markdown("<br>", unsafe_allow_html=True) # Spazio per stacco visivo
+
+    # --- RIGA 2: IN CORSO E PROSSIME GARE ---
+    # Creiamo nuove colonne per forzare l'allineamento orizzontale dei titoli
+    col_bot_left, col_bot_right = st.columns(2, gap="medium")
+
+    with col_bot_left:
+        st.subheader("🏁 In corso")
         with st.container(border=True):
             if current_data:
                 for c in current_data:
@@ -129,20 +138,8 @@ try:
             else:
                 st.info("Nessuna corsa attiva.")
 
-    # --- COLONNA DESTRA: STATISTICHE E PROGRAMMA ---
-    with col_right:
-        st.subheader("🏆 Ultimi risultati") # Titolo principale allineato con quello a sinistra
-        with st.container(border=True):
-            if last_data:
-                for l in last_data:
-                    st.write(f"✅ {l['race_name']}")
-                
-                if st.button("CLASSIFICHE 🏆", use_container_width=True, type="primary"):
-                    st.switch_page("pages/02_Classifiche.py")
-            else:
-                st.info("Nessun risultato recente.")
-
-        st.caption("📅 PROSSIME GARE")
+    with col_bot_right:
+        st.subheader("📅 Prossime gare")
         with st.container(border=True):
             if upcoming_data:
                 for u in upcoming_data:
