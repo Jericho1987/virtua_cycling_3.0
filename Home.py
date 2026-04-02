@@ -12,12 +12,10 @@ st.set_page_config(
 # --- CSS PER ALLINEAMENTO SIDEBAR E RIMOZIONE SPAZI VUOTI ---
 st.markdown("""
     <style>
-        /* Rimuove lo spazio bianco in cima alla pagina */
         .block-container {
             padding-top: 1rem !important;
             padding-bottom: 0rem !important;
         }
-        /* Rende l'header di Streamlit trasparente per guadagnare spazio */
         header {
             visibility: hidden;
             height: 0px;
@@ -62,13 +60,19 @@ if st.session_state.id_user_loggato is None:
                         })
                         st.session_state.supabase_session = auth_res.session
                         user_id = auth_res.user.id
+                        
+                        # MODIFICA: Recupero anche is_admin dal DB
                         user_info = (supabase.table("dim_user")
-                                     .select("nickname")
+                                     .select("nickname, is_admin")
                                      .eq("id_user", user_id)
                                      .single()
                                      .execute())
+                        
                         st.session_state.id_user_loggato = user_id
                         st.session_state.nome_user_loggato = user_info.data['nickname']
+                        # MODIFICA: Salvo il flag is_admin in sessione
+                        st.session_state.is_admin = user_info.data.get('is_admin', False)
+                        
                         st.rerun()
                     except Exception:
                         st.error("Credenziali errate.")
