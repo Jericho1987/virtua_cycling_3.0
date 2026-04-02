@@ -51,42 +51,42 @@ if st.session_state.id_user_loggato is None:
                             "password": password_input
                         })
                         
-                        # Recupero dati dal profilo pubblico (popolato dal trigger SQL)
                         user_id = auth_res.user.id
-                        user_info = supabase.table("dim_user").select("display_name").eq("id_user", user_id).single().execute()
+                        # Recupero il nickname dalla tabella dim_user
+                        user_info = supabase.table("dim_user").select("nickname").eq("id_user", user_id).single().execute()
                         
                         st.session_state.id_user_loggato = user_id
-                        st.session_state.nome_user_loggato = user_info.data['display_name']
+                        st.session_state.nome_user_loggato = user_info.data['nickname']
                         st.rerun()
                     except Exception:
                         st.error("Credenziali errate o account non confermato.")
 
-        # --- SEZIONE REGISTRAZIONE ---
+        # --- SEZIONE REGISTRAZIONE SEMPLIFICATA ---
         with tab_reg:
             with st.form("register_form"):
                 reg_email = st.text_input("Email")
                 reg_pass = st.text_input("Password (min. 6 caratteri)", type="password")
-                reg_name = st.text_input("Nome e Cognome")
-                reg_nick = st.text_input("Nickname")
+                reg_nick = st.text_input("Scegli il tuo Nickname")
                 submit_reg = st.form_submit_button("CREA ACCOUNT ✨", use_container_width=True)
                 
                 if submit_reg:
                     if len(reg_pass) < 6:
                         st.warning("La password deve avere almeno 6 caratteri.")
+                    elif not reg_nick:
+                        st.warning("Il nickname è obbligatorio!")
                     else:
                         try:
-                            # Registrazione su Supabase Auth + Metadati per il trigger SQL
+                            # Registrazione su Supabase Auth inviando solo il nickname
                             supabase.auth.sign_up({
                                 "email": reg_email,
                                 "password": reg_pass,
                                 "options": {
                                     "data": {
-                                        "display_name": reg_name,
                                         "nickname": reg_nick
                                     }
                                 }
                             })
-                            st.success("Registrazione effettuata! Ora puoi accedere dal tab 'Accedi'.")
+                            st.success(f"Benvenuto {reg_nick}! Ora puoi accedere dal tab 'Accedi'.")
                         except Exception as e:
                             st.error(f"Errore durante la registrazione: {e}")
     st.stop()
@@ -104,7 +104,7 @@ else:
     # Sidebar centralizzata
     render_sidebar()
 
-    # Intestazione
+    # Intestazione Dashboard
     t1, t2 = st.columns([0.1, 0.9])
     with t1: st.image(URL_LOGO, width=60)
     with t2: st.markdown(f"### Ciao {st.session_state.nome_user_loggato}! 👋")
