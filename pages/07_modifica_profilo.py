@@ -30,19 +30,23 @@ with tab_nick:
         nuovo_nick = st.text_input("Nuovo Nickname", value=st.session_state.nome_user_loggato)
         if st.form_submit_button("Aggiorna Nickname", use_container_width=True):
             if nuovo_nick:
-                try:
-                    # Aggiorna la tabella dim_user
-                    supabase.table("dim_user").update({"nickname": nuovo_nick})\
-                        .eq("id_user", st.session_state.id_user_loggato).execute()
+try:
+                    # Aggiorna entrambi i campi nella tabella dim_user
+                    supabase.table("dim_user").update({
+                        "nickname": nuovo_nick,
+                        "display_name": nuovo_nick
+                    }).eq("id_user", st.session_state.id_user_loggato).execute()
                     
-                    # Aggiorna la sessione per cambiare il nome nella sidebar all'istante
+                    # Aggiorna la sessione locale per la sidebar
                     st.session_state.nome_user_loggato = nuovo_nick
-                    st.success("Nickname aggiornato! Lo vedrai nella sidebar al prossimo refresh.")
+                    
+                    st.success("Profilo aggiornato con successo! ✅")
                     st.rerun()
                 except Exception as e:
-                    st.error(f"Errore: {e}")
+                    st.error(f"Errore durante l'aggiornamento: {e}")
             else:
-                st.warning("Il nickname non può essere vuoto.")
+                st.warning("Il campo non può essere vuoto.")
+
 
 # --- TAB 2: MODIFICA EMAIL ---
 with tab_mail:
