@@ -30,14 +30,23 @@ if st.session_state.id_user_loggato is None:
                 p_in = st.text_input("Password", type="password")
                 if st.form_submit_button("ACCEDI 🚀", use_container_width=True):
                     try:
+                        # Autenticazione Supabase
                         res = supabase.auth.sign_in_with_password({"email": e_in, "password": p_in})
-                        u_id = res.user.id
-                        u_info = supabase.table("dim_user").select("nickname, is_admin").eq("id_user", u_id).single().execute()
-                        st.session_state.id_user_loggato = u_id
-                        st.session_state.nome_user_loggato = u_info.data['nickname']
-                        st.session_state.is_admin = u_info.data.get('is_admin', False)
-                        st.rerun()
-                    except: st.error("Credenziali errate.")
+                        
+                        if res.user:
+                            u_id = res.user.id
+                            # Recupero dati profilo
+                            u_info = supabase.table("dim_user").select("nickname, is_admin").eq("id_user", u_id).single().execute()
+                            
+                            # Scrittura immediata in session_state
+                            st.session_state.id_user_loggato = u_id
+                            st.session_state.nome_user_loggato = u_info.data['nickname']
+                            st.session_state.is_admin = u_info.data.get('is_admin', False)
+                            
+                            # Rerun forzato per saltare subito alla dashboard
+                            st.rerun()
+                    except Exception:
+                        st.error("Credenziali errate.")
         with t2:
             with st.form("reg_form"):
                 n_e = st.text_input("Email")
@@ -50,6 +59,7 @@ if st.session_state.id_user_loggato is None:
                     except Exception as e: st.error(f"Errore: {e}")
     st.stop()
 
+# Se arriviamo qui, l'utente è loggato
 check_auth()
 render_sidebar()
 
