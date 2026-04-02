@@ -14,11 +14,32 @@ def check_auth():
     st.markdown("""
         <style>
         [data-testid="stSidebar"], [data-testid="stSidebarCollapsedControl"] { display: flex !important; }
-        .sidebar-user-box { display: flex; align-items: center; gap: 12px; padding: 5px 0; }
-        .sidebar-user-box img {
-            border-radius: 50% !important; border: 2px solid #ff69b4 !important;
-            width: 45px !important; height: 45px !important; object-fit: cover;
+        
+        /* Box Utente con margine inferiore aumentato */
+        .sidebar-user-box { 
+            display: flex; 
+            align-items: center; 
+            gap: 12px; 
+            padding: 5px 0; 
+            margin-bottom: 12px; /* Aumenta lo spazio prima dei pulsanti */
         }
+        
+        .sidebar-user-box img {
+            border-radius: 50% !important; 
+            border: 2px solid #ff69b4 !important;
+            width: 45px !important; 
+            height: 45px !important; 
+            object-fit: cover;
+        }
+
+        /* Uniforma l'altezza e l'estetica dei pulsanti in sidebar */
+        section[data-testid="stSidebar"] .stButton button {
+            height: 38px !important;
+            padding-top: 0px !important;
+            padding-bottom: 0px !important;
+            font-size: 0.9rem !important;
+        }
+
         .side-header { font-size: 0.7rem; color: #888; text-transform: uppercase; margin-top: 15px; margin-bottom: 5px; }
         footer {visibility: hidden;}
         </style>
@@ -43,13 +64,13 @@ def render_sidebar():
             </div>
         """, unsafe_allow_html=True)
         
-        # Tasti Modifica e Logout
-        c1, c2 = st.columns([0.3, 0.7])
+        # Tasti Modifica e Logout (English + Icone uniformate)
+        c1, c2 = st.columns([0.4, 0.6]) # Proporzione più bilanciata per uniformare le icone
         with c1:
-            if st.button("⚙️", use_container_width=True, help="Modifica Profilo"):
+            if st.button("⚙️", key="btn_settings", use_container_width=True, help="Settings"):
                 st.switch_page("pages/07_modifica_profilo.py")
         with c2:
-            if st.button("Esci 🚪", use_container_width=True):
+            if st.button("Logout 🚪", key="btn_logout", use_container_width=True):
                 st.session_state.id_user_loggato = None
                 st.session_state.nome_user_loggato = None
                 st.rerun()
