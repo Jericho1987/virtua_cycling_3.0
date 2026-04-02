@@ -4,10 +4,18 @@ from auth_utils import check_auth, render_sidebar
 
 st.set_page_config(page_title="Virtua Cycling - Home", layout="wide", page_icon="🚴‍♂️")
 
+# --- CSS AGGIORNATO PER MOBILE (HAMBURGER VISIBILE) ---
 st.markdown("""
     <style>
         .block-container { padding-top: 1rem !important; padding-bottom: 0rem !important; }
-        header { visibility: hidden; height: 0px; }
+        
+        /* Rende l'header trasparente per mostrare l'hamburger menu su mobile */
+        header[data-testid="stHeader"] {
+            background-color: rgba(0,0,0,0) !important;
+            color: white !important;
+        }
+        /* Rimuove la linea colorata in cima senza nascondere i tasti */
+        [data-testid="stDecoration"] { display: none; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -30,20 +38,13 @@ if st.session_state.id_user_loggato is None:
                 p_in = st.text_input("Password", type="password")
                 if st.form_submit_button("ACCEDI 🚀", use_container_width=True):
                     try:
-                        # Autenticazione Supabase
                         res = supabase.auth.sign_in_with_password({"email": e_in, "password": p_in})
-                        
                         if res.user:
                             u_id = res.user.id
-                            # Recupero dati profilo
                             u_info = supabase.table("dim_user").select("nickname, is_admin").eq("id_user", u_id).single().execute()
-                            
-                            # Scrittura immediata in session_state
                             st.session_state.id_user_loggato = u_id
                             st.session_state.nome_user_loggato = u_info.data['nickname']
                             st.session_state.is_admin = u_info.data.get('is_admin', False)
-                            
-                            # Rerun forzato per saltare subito alla dashboard
                             st.rerun()
                     except Exception:
                         st.error("Credenziali errate.")
@@ -59,7 +60,6 @@ if st.session_state.id_user_loggato is None:
                     except Exception as e: st.error(f"Errore: {e}")
     st.stop()
 
-# Se arriviamo qui, l'utente è loggato
 check_auth()
 render_sidebar()
 
