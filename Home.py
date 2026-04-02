@@ -3,7 +3,7 @@ from supabase import create_client
 
 # --- 1. CONFIGURAZIONE BRANDING ---
 NOME_APP = "Virtua Cycling"
-# Nuovo link senza spazi per massima compatibilità
+# Nuovo link senza spazi e ottimizzato
 URL_LOGO = "https://github.com/Jericho1987/virtua_cycling_3.0/blob/main/logo_pwa.png?raw=true"
 
 st.set_page_config(
@@ -17,35 +17,37 @@ url = st.secrets["SUPABASE_URL"]
 key = st.secrets["SUPABASE_KEY"]
 supabase = create_client(url, key)
 
-# --- 3. LOGICA PWA & CSS CUSTOM ---
-# Ho aggiunto 'application-name' e 'mobile-web-app-capable' per Android/Chrome
+# --- 3. LOGICA PWA & CSS CUSTOM (Nascosta al rendering) ---
 st.markdown(f"""
-    <head>
-        <link rel="manifest" href="/manifest.json">
-        
-        <meta name="mobile-web-app-capable" content="yes">
-        <meta name="application-name" content="{NOME_APP}">
-        <link rel="icon" sizes="192x192" href="{URL_LOGO}">
-        <link rel="icon" sizes="512x512" href="{URL_LOGO}">
-        
-        <meta name="apple-mobile-web-app-title" content="{NOME_APP}">
-        <link rel="apple-touch-icon" href="{URL_LOGO}">
-        <meta name="apple-mobile-web-app-capable" content="yes">
-        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-        
-        <meta name="theme-color" content="#121212">
+    <div style="display:none;">
+        <head>
+            <link rel="manifest" href="/manifest.json">
+            
+            <meta name="mobile-web-app-capable" content="yes">
+            <meta name="application-name" content="{NOME_APP}">
+            <link rel="icon" sizes="192x192" href="{URL_LOGO}">
+            <link rel="icon" sizes="512x512" href="{URL_LOGO}">
+            
+            <meta name="apple-mobile-web-app-title" content="{NOME_APP}">
+            <link rel="apple-touch-icon" href="{URL_LOGO}">
+            <meta name="apple-mobile-web-app-capable" content="yes">
+            <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+            
+            <meta name="theme-color" content="#121212">
 
-        <script>
-          if ('serviceWorker' in navigator) {{
-            navigator.serviceWorker.register('/sw.js');
-          }}
-        </script>
-    </head>
+            <script>
+              if ('serviceWorker' in navigator) {{
+                navigator.serviceWorker.register('/sw.js');
+              }}
+            </script>
+        </head>
+    </div>
     
     <style>
+    /* Reset sfondo e stile generale */
     .stApp {{ background-color: #121212; }}
     
-    /* Nasconde header e footer per simulare App Nativa */
+    /* Nasconde header, footer e menu per simulare App Nativa */
     #MainMenu {{visibility: hidden;}}
     footer {{visibility: hidden;}}
     header {{visibility: hidden;}}
