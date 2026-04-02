@@ -23,9 +23,28 @@ url = st.secrets["SUPABASE_URL"]
 key = st.secrets["SUPABASE_KEY"]
 supabase = create_client(url, key)
 
+# --- LOGICA DI PERSISTENZA SESSIONE ---
 if 'id_user_loggato' not in st.session_state:
     st.session_state.id_user_loggato = None
 
+# Se non loggato in session_state, prova a recuperare la sessione attiva da Supabase
+if st.session_state.id_user_loggato is None:
+    try:
+        # Recupera la sessione dal client (gestisce i cookie del browser)
+        res_session = supabase.auth.get_session()
+        if res_session and res_session.user:
+            u_id = res_session.user.id
+            # Recupera info profilo per ripristinare lo stato completo
+            u_info = supabase.table("dim_user").select("nickname, is_admin").eq("id_user", u_id).single().execute()
+            
+            st.session_state.id_user_loggato = u_id
+            st.session_state.nome_user_loggato = u_info.data['nickname']
+            st.session_state.is_admin = u_info.data.get('is_admin', False)
+    except:
+        # Se la sessione è scaduta o non valida, resta a None e mostrerà il login
+        pass
+
+# --- SCHERMATA DI LOGIN (solo se il recupero sopra fallisce) ---
 if st.session_state.id_user_loggato is None:
     st.markdown("<style>[data-testid='stSidebar'], [data-testid='stSidebarCollapsedControl'] { display: none !important; } .stTabs [data-baseweb='tab-list'] { justify-content: center; }</style>", unsafe_allow_html=True)
     _, col_login, _ = st.columns([1, 1.2, 1])
@@ -60,6 +79,7 @@ if st.session_state.id_user_loggato is None:
                     except Exception as e: st.error(f"Errore: {e}")
     st.stop()
 
+# --- DASHBOARD (Utente loggato) ---
 check_auth()
 render_sidebar()
 
