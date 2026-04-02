@@ -19,6 +19,12 @@ supabase = create_client(url, key)
 # --- 3. LOGICA PWA & CSS CUSTOM ---
 st.markdown(f"""
     <link rel="manifest" href="/manifest.json">
+    
+    <meta name="apple-mobile-web-app-title" content="{NOME_APP}">
+    <link rel="apple-touch-icon" href="{URL_LOGO}">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
     <script>
       if ('serviceWorker' in navigator) {{
         navigator.serviceWorker.register('/sw.js');
@@ -93,9 +99,10 @@ if not st.session_state.id_user_loggato:
 if 'avviso_pwa_mostrato' not in st.session_state:
     st.toast(f"📱 Installa {NOME_APP} sul tuo smartphone!", icon="💡")
     with st.expander("📲 Come usare Virtua Cycling come un'App"):
-        st.info("""
+        st.info(f"""
         **iPhone (Safari):** Clicca l'icona 'Condividi' (quadrato con freccia) e seleziona **'Aggiungi alla schermata Home'**.
         \n**Android (Chrome):** Clicca i tre puntini in alto e seleziona **'Installa applicazione'**.
+        \nL'app apparirà come **{NOME_APP}** con il logo ufficiale.
         """)
     st.session_state.avviso_pwa_mostrato = True
 
@@ -170,9 +177,4 @@ with col_right:
 
 # Sidebar
 with st.sidebar:
-    st.image(URL_LOGO, width=100)
-    st.write(f"Utente: **{st.session_state.nome_user_loggato}**")
-    st.divider()
-    if st.button("Esci 🚪", use_container_width=True):
-        st.session_state.id_user_loggato = None
-        st.rerun()
+    st.image(URL_
