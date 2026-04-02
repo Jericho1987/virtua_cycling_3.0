@@ -92,7 +92,7 @@ try:
                         st.session_state.gara_selezionata_id = p['id_race']
                         st.session_state.tappa_selezionata_id = p['id_stage']
                         st.switch_page("pages/01_Inserimento.py")
-            else: st.success("Pick completati! ✅")
+            else: st.success("Non ci sono gare aperte al momento ✅")
     with c_tr:
         st.subheader("🏆 Ultimi risultati")
         with st.container(border=True):
