@@ -3,8 +3,7 @@ from supabase import create_client
 
 # --- 1. CONFIGURAZIONE BRANDING ---
 NOME_APP = "Virtua Cycling"
-# Aggiunto parametro v=99 per forzare il refresh della cache dell'icona
-URL_LOGO = "https://github.com/Jericho1987/virtua_cycling_3.0/blob/main/logo_pwa.png?raw=true&v=99"
+URL_LOGO = "https://github.com/Jericho1987/virtua_cycling_3.0/blob/main/logo_pwa.png?raw=true"
 
 st.set_page_config(
     page_title=NOME_APP, 
@@ -17,40 +16,24 @@ url = st.secrets["SUPABASE_URL"]
 key = st.secrets["SUPABASE_KEY"]
 supabase = create_client(url, key)
 
-# --- 3. LOGICA PWA & CSS CUSTOM (Forzatura Meta Tag) ---
+# --- 3. CSS CUSTOM (Solo interfaccia) ---
 st.markdown(f"""
-    <div style="display:none;">
-        <head>
-            <meta name="mobile-web-app-capable" content="yes">
-            <meta name="application-name" content="{NOME_APP}">
-            <link rel="icon" sizes="192x192" href="{URL_LOGO}">
-            <link rel="icon" sizes="512x512" href="{URL_LOGO}">
-            
-            <meta name="apple-mobile-web-app-title" content="{NOME_APP}">
-            <link rel="apple-touch-icon" href="{URL_LOGO}">
-            <link rel="apple-touch-startup-image" href="{URL_LOGO}">
-            <meta name="apple-mobile-web-app-capable" content="yes">
-            <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-            
-            <meta name="theme-color" content="#121212">
-        </head>
-    </div>
-    
     <style>
-    /* Reset interfaccia */
+    /* Reset sfondo e stile generale */
     .stApp {{ background-color: #121212; }}
     
-    /* Nasconde elementi superflui per look "App" */
+    /* Nasconde header, footer e menu Streamlit */
     #MainMenu {{visibility: hidden;}}
     footer {{visibility: hidden;}}
     header {{visibility: hidden;}}
     
+    /* Ottimizzazione layout mobile */
     .block-container {{
         padding-top: 1rem !important;
         padding-bottom: 3rem !important;
     }}
 
-    /* Stile Dashboard */
+    /* Box sezioni stile Dashboard */
     div[data-testid="stVerticalBlock"] > div[style*="border"] {{
         background-color: #1e1e1e !important;
         border: 1px solid #333 !important;
@@ -58,12 +41,14 @@ st.markdown(f"""
         padding: 20px !important;
     }}
 
+    /* Input Login */
     .stTextInput input {{
         background-color: #262626 !important;
         color: white !important;
         border: 1px solid #555 !important;
     }}
 
+    /* Header sezioni */
     .section-header {{
         font-size: 1.4rem;
         font-weight: bold;
@@ -98,18 +83,7 @@ if not st.session_state.id_user_loggato:
                     st.error("Credenziali errate")
     st.stop()
 
-# --- 5. MESSAGGIO INSTALLAZIONE PWA ---
-if 'avviso_pwa_mostrato' not in st.session_state:
-    st.toast(f"📱 Installa {NOME_APP} sul tuo smartphone!", icon="💡")
-    with st.expander("📲 Come usare Virtua Cycling come un'App"):
-        st.info(f"""
-        **IMPORTANTE:** Quando clicchi su 'Aggiungi', se vedi il nome 'Streamlit', cancellalo e scrivi **'{NOME_APP}'**.
-        \n**iPhone (Safari):** Clicca 'Condividi' e seleziona **'Aggiungi alla schermata Home'**.
-        \n**Android (Chrome):** Clicca i tre puntini e seleziona **'Installa applicazione'**.
-        """)
-    st.session_state.avviso_pwa_mostrato = True
-
-# --- 6. DASHBOARD PRINCIPALE ---
+# --- 5. DASHBOARD PRINCIPALE ---
 st.title(f"Ciao {st.session_state.nome_user_loggato}! 👋")
 
 # Recupero dati dalle View
