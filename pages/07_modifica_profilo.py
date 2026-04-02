@@ -12,10 +12,17 @@ render_sidebar()
 if not st.session_state.get('id_user_loggato'):
     st.switch_page("Home.py")
 
-# --- 3. CONNESSIONE ---
+# --- 3. CONNESSIONE CON GESTIONE SESSIONE ---
 url = st.secrets["SUPABASE_URL"]
 key = st.secrets["SUPABASE_KEY"]
 supabase = create_client(url, key)
+
+# Colleghiamo la sessione al client per permettere le modifiche protette (Auth)
+if "supabase_session" in st.session_state and st.session_state.supabase_session:
+    supabase.auth.set_session(
+        st.session_state.supabase_session.access_token, 
+        st.session_state.supabase_session.refresh_token
+    )
 
 st.title("⚙️ Gestione Profilo")
 st.write(f"Stai modificando l'account di: **{st.session_state.nome_user_loggato}**")
@@ -57,7 +64,7 @@ with tab_mail:
         if st.form_submit_button("Aggiorna Email", use_container_width=True):
             if "@" in nuova_email and "." in nuova_email:
                 try:
-                    # 1. Aggiorna l'autenticazione di sistema
+                    # 1. Aggiorna l'autenticazione di sistema (Richiede sessione valida)
                     supabase.auth.update_user({"email": nuova_email})
                     
                     # 2. Aggiorna il riferimento email nella tabella dim_user
@@ -80,6 +87,7 @@ with tab_pass:
         if st.form_submit_button("Cambia Password", use_container_width=True):
             if len(n_pass) >= 6 and n_pass == c_pass:
                 try:
+                    # Richiede sessione valida
                     supabase.auth.update_user({"password": n_pass})
                     st.success("Password modificata con successo! 🔐")
                 except Exception as e:
