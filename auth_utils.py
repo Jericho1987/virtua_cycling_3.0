@@ -1,7 +1,7 @@
 import streamlit as st
 
 def check_auth():
-    """Controlla se l'utente è loggato e imposta lo stile della sidebar."""
+    """Controlla l'auth e applica il restyling globale dell'app."""
     if 'id_user_loggato' not in st.session_state or st.session_state.id_user_loggato is None:
         st.markdown("<style>[data-testid='stSidebar'], [data-testid='stSidebarCollapsedControl'] {display: none !important;}</style>", unsafe_allow_html=True)
         st.warning("⚠️ Accesso negato. Effettua il login nella Home.")
@@ -9,70 +9,116 @@ def check_auth():
             st.switch_page("Home.py")
         st.stop()
     
+    # --- RESTYLING GRAFICO GLOBALE ---
     st.markdown("""
         <style>
-        [data-testid="stSidebar"], [data-testid="stSidebarCollapsedControl"] { 
-            display: flex !important; 
-        }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap');
         
-        /* Rende l'header trasparente ma mantiene l'hamburger menu cliccabile */
+        * { font-family: 'Inter', sans-serif; }
+
+        /* Sidebar Glassmorphism */
+        [data-testid="stSidebar"] {
+            background-color: rgba(20, 20, 20, 0.8) !important;
+            backdrop-filter: blur(15px);
+            border-right: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        /* Header Trasparente */
         header[data-testid="stHeader"] {
             background-color: rgba(0,0,0,0) !important;
         }
+        [data-testid="stDecoration"] { display: none; }
 
+        /* Container delle Card (i box bianchi/grigi di Streamlit) */
+        div[data-testid="stVerticalBlock"] > div > div[style*="border"] {
+            background: rgba(30, 30, 30, 0.6) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            border-radius: 15px !important;
+            padding: 20px !important;
+            transition: all 0.3s ease;
+        }
+        
+        /* Effetto Hover sulle Card */
+        div[data-testid="stVerticalBlock"] > div > div[style*="border"]:hover {
+            transform: translateY(-5px);
+            border-color: #ff4b4b !important;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+        }
+
+        /* Bottoni Custom */
+        .stButton > button {
+            border-radius: 10px !important;
+            border: none !important;
+            background: linear-gradient(135deg, #ff4b4b 0%, #ff7575 100%) !important;
+            color: white !important;
+            font-weight: 600 !important;
+            transition: all 0.2s ease !important;
+        }
+        .stButton > button:hover {
+            transform: scale(1.03);
+            box-shadow: 0 4px 15px rgba(255, 75, 75, 0.4);
+        }
+
+        /* User Box Sidebar */
         .sidebar-user-box { 
             display: flex; 
             align-items: center; 
-            gap: 12px; 
-            padding: 5px 0; 
-            margin-bottom: 12px; 
+            gap: 15px; 
+            padding: 15px; 
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 12px;
+            margin-bottom: 20px;
         }
         .sidebar-user-box img {
             border-radius: 50% !important; 
-            border: 2px solid #ff69b4 !important;
-            width: 45px !important; 
-            height: 45px !important; 
+            border: 2px solid #ff4b4b !important;
+            width: 50px !important; 
+            height: 50px !important; 
             object-fit: cover;
+            box-shadow: 0 0 10px rgba(255, 75, 75, 0.3);
         }
-        section[data-testid="stSidebar"] .stButton button {
-            height: 38px !important;
-            padding-top: 0px !important;
-            padding-bottom: 0px !important;
-            font-size: 0.9rem !important;
+        
+        .side-header { 
+            font-size: 0.75rem; 
+            color: #666; 
+            text-transform: uppercase; 
+            letter-spacing: 1px;
+            margin: 20px 0 10px 5px; 
         }
-        .side-header { font-size: 0.7rem; color: #888; text-transform: uppercase; margin-top: 15px; margin-bottom: 5px; }
+        
         footer {visibility: hidden;}
         </style>
     """, unsafe_allow_html=True)
 
 def render_sidebar():
-    """Disegna la sidebar manuale con controllo admin."""
+    """Disegna la sidebar con lo stile aggiornato."""
     with st.sidebar:
-        st.page_link("Home.py", label="Home", icon="🏠")
-        st.page_link("pages/01_Inserimento.py", label="Pick", icon="✍️")
-        st.page_link("pages/02_Classifiche.py", label="Classifiche", icon="🏆")
+        st.page_link("Home.py", label="Dashboard", icon="🏠")
+        st.page_link("pages/01_Inserimento.py", label="I tuoi Pick", icon="✍️")
+        st.page_link("pages/02_Classifiche.py", label="Leaderboard", icon="🏆")
         
-        st.markdown("---")
-        st.markdown('<p class="side-header">Area Personale</p>', unsafe_allow_html=True)
+        st.markdown('<p class="side-header">Account</p>', unsafe_allow_html=True)
         st.markdown(f"""
             <div class="sidebar-user-box">
                 <img src="https://github.com/Jericho1987/virtua_cycling_3.0/blob/main/rider_logo.jpg?raw=true">
-                <b>{st.session_state.get('nome_user_loggato', 'Utente')}</b>
+                <div>
+                    <div style="font-weight: 600; color: white;">{st.session_state.get('nome_user_loggato', 'Rider')}</div>
+                    <div style="font-size: 0.7rem; color: #888;">Pro Member</div>
+                </div>
             </div>
         """, unsafe_allow_html=True)
         
-        c1, c2 = st.columns([0.4, 0.6])
-        with c1:
-            if st.button("⚙️", key="btn_settings", use_container_width=True, help="Settings"):
+        col1, col2 = st.columns([1, 1])
+        with col1:
+            if st.button("Profilo ⚙️", key="btn_settings", use_container_width=True):
                 st.switch_page("pages/07_modifica_profilo.py")
-        with c2:
-            if st.button("Logout 🚪", key="btn_logout", use_container_width=True):
+        with col2:
+            if st.button("Esci 🚪", key="btn_logout", use_container_width=True):
                 st.session_state.clear()
                 st.rerun()
 
         if st.session_state.get('is_admin', False):
-            st.markdown("---")
-            st.markdown('<p class="side-header" style="color: #ff4b4b;">🛠️ Amministrazione</p>', unsafe_allow_html=True)
+            st.markdown('<p class="side-header" style="color: #ff4b4b;">Admin Panel</p>', unsafe_allow_html=True)
             st.page_link("pages/03_Gestione_Risultati.py", label="Risultati", icon="📊")
             st.page_link("pages/04_Upload_Startlist.py", label="Startlist", icon="📑")
             st.page_link("pages/05_Upload_Mass_Results.py", label="Mass Results", icon="🗂️")
