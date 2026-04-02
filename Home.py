@@ -1,161 +1,90 @@
 import streamlit as st
 from supabase import create_client
-from auth_utils import render_sidebar
+from auth_utils import check_auth, render_sidebar  # Usiamo le tue funzioni certificate
 
-# --- 1. CONFIGURAZIONE BRANDING ---
-NOME_APP = "Virtua Cycling"
-URL_LOGO = "https://github.com/Jericho1987/virtua_cycling_3.0/blob/main/logo_pwa.png?raw=true"
-
-st.set_page_config(page_title=NOME_APP, layout="wide", page_icon=URL_LOGO)
+# --- 1. CONFIGURAZIONE PAGINA (Coerente con 01) ---
+st.set_page_config(page_title="Virtua Cycling - Home", layout="wide", page_icon="🚴‍♂️")
 
 # --- 2. CONNESSIONE A SUPABASE ---
 url = st.secrets["SUPABASE_URL"]
 key = st.secrets["SUPABASE_KEY"]
 supabase = create_client(url, key)
 
-# --- 3. GESTIONE STATO ACCESSO ---
+# --- 3. GESTIONE ACCESSO ---
 if 'id_user_loggato' not in st.session_state:
     st.session_state.id_user_loggato = None
 
-# --- 4. LOGICA LOGIN O DASHBOARD ---
+# --- 4. LOGICA LOGIN (Se non loggato) ---
 if st.session_state.id_user_loggato is None:
-    # CSS per nascondere sidebar e centrare il form
+    # CSS per il login (rimane invariato per centrare il form)
     st.markdown("""
         <style>
             [data-testid="stSidebar"], [data-testid="stSidebarCollapsedControl"] { display: none !important; }
-            .block-container { padding-top: 5rem !important; }
             .stTabs [data-baseweb="tab-list"] { justify-content: center; }
         </style>
     """, unsafe_allow_html=True)
 
     _, col_login, _ = st.columns([1, 1.2, 1])
-    
     with col_login:
-        st.image(URL_LOGO, width=100)
-        st.title(NOME_APP)
-        
+        st.title("Virtua Cycling")
         tab_login, tab_reg = st.tabs(["🔐 Accedi", "✨ Registrati"])
-
-        # --- SEZIONE LOGIN ---
+        
         with tab_login:
             with st.form("login_form"):
                 email_input = st.text_input("Email")
                 password_input = st.text_input("Password", type="password")
-                submit_login = st.form_submit_button("ACCEDI ALLA GARA 🚀", use_container_width=True)
-                
-                if submit_login:
+                if st.form_submit_button("ACCEDI 🚀", use_container_width=True):
                     try:
-                        # Autenticazione sicura tramite Supabase Auth
-                        auth_res = supabase.auth.sign_in_with_password({
-                            "email": email_input, 
-                            "password": password_input
-                        })
-                        
+                        auth_res = supabase.auth.sign_in_with_password({"email": email_input, "password": password_input})
                         user_id = auth_res.user.id
-                        # Recupero il nickname dalla tabella dim_user
                         user_info = supabase.table("dim_user").select("nickname").eq("id_user", user_id).single().execute()
-                        
                         st.session_state.id_user_loggato = user_id
                         st.session_state.nome_user_loggato = user_info.data['nickname']
                         st.rerun()
-                    except Exception:
-                        st.error("Credenziali errate o account non confermato.")
-
-        # --- SEZIONE REGISTRAZIONE SEMPLIFICATA ---
-        with tab_reg:
-            with st.form("register_form"):
-                reg_email = st.text_input("Email")
-                reg_pass = st.text_input("Password (min. 6 caratteri)", type="password")
-                reg_nick = st.text_input("Scegli il tuo Nickname")
-                submit_reg = st.form_submit_button("CREA ACCOUNT ✨", use_container_width=True)
-                
-                if submit_reg:
-                    if len(reg_pass) < 6:
-                        st.warning("La password deve avere almeno 6 caratteri.")
-                    elif not reg_nick:
-                        st.warning("Il nickname è obbligatorio!")
-                    else:
-                        try:
-                            # Registrazione su Supabase Auth inviando solo il nickname
-                            supabase.auth.sign_up({
-                                "email": reg_email,
-                                "password": reg_pass,
-                                "options": {
-                                    "data": {
-                                        "nickname": reg_nick
-                                    }
-                                }
-                            })
-                            st.success(f"Benvenuto {reg_nick}! Ora puoi accedere dal tab 'Accedi'.")
-                        except Exception as e:
-                            st.error(f"Errore durante la registrazione: {e}")
+                    except:
+                        st.error("Credenziali errate.")
     st.stop()
 
-else:
-    # --- 5. SCHERMATA DASHBOARD (UTENTE LOGGATO) ---
-    st.markdown("""
-        <style>
-        footer {visibility: hidden;}
-        [data-testid="stSidebar"] { display: flex !important; }
-        .race-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #333; font-size: 0.85rem; }
-        </style>
-    """, unsafe_allow_html=True)
+# --- 5. DASHBOARD (UTENTE LOGGATO) ---
+# Qui copiamo l'impostazione di 01_Inserimento.py
+check_auth()      # Protezione e CSS "giusto" (quello col bordino rosa)
+render_sidebar()  # Sidebar tonda e corretta
 
-    # Sidebar centralizzata
-    render_sidebar()
+# Intestazione pulita come in 01
+st.title(f"👋 Ciao {st.session_state.nome_user_loggato}!")
 
-    # Intestazione Dashboard
-    t1, t2 = st.columns([0.1, 0.9])
-    with t1: st.image(URL_LOGO, width=60)
-    with t2: st.markdown(f"### Ciao {st.session_state.nome_user_loggato}! 👋")
+# Griglia Dashboard
+try:
+    # Caricamento dati dalle View
+    pick_data = supabase.table("view_stage_to_pick").select("*").execute().data
+    current_data = supabase.table("view_stage_current").select("*").execute().data
+    last_data = supabase.table("view_stage_last_results").select("*").execute().data
+    upcoming_data = supabase.table("view_races_upcoming").select("*").execute().data
 
-    # Recupero dati (Views)
-    try:
-        pick_data = supabase.table("view_stage_to_pick").select("*").execute().data
-        current_data = supabase.table("view_stage_current").select("*").execute().data
-        last_data = supabase.table("view_stage_last_results").select("*").execute().data
-        upcoming_data = supabase.table("view_races_upcoming").select("*").execute().data
+    col_left, col_right = st.columns(2, gap="medium")
 
-        col_left, col_right = st.columns(2, gap="medium")
+    with col_left:
+        st.subheader("✍️ Pick da fare")
+        with st.container(border=True):
+            if pick_data:
+                for p in pick_data:
+                    c1, c2 = st.columns([0.7, 0.3])
+                    c1.write(f"**{p['race_name']}** (Tappa {p['stage']})")
+                    if c2.button("Vai", key=f"p_{p['id_stage']}", use_container_width=True):
+                        st.session_state.gara_selezionata_id = p['id_race']
+                        st.session_state.tappa_selezionata_id = p['id_stage']
+                        st.switch_page("pages/01_Inserimento.py")
+            else:
+                st.success("Tutti i pick sono completati! ✅")
 
-        with col_left:
-            st.caption("✍️ PICK DA FARE")
-            with st.container(border=True):
-                if pick_data:
-                    for p in pick_data:
-                        c1, c2 = st.columns([0.75, 0.25])
-                        c1.write(f"**{p['race_name']}**\nT{p['stage']}")
-                        if c2.button("Vai", key=f"p_{p['id_stage']}", use_container_width=True):
-                            st.session_state.gara_selezionata_id = p['id_race']
-                            st.session_state.tappa_selezionata_id = p['id_stage']
-                            st.switch_page("pages/01_Inserimento.py")
-                else: 
-                    st.success("Pick completati! ✅")
+    with col_right:
+        st.subheader("🏆 Ultimi Risultati")
+        with st.container(border=True):
+            if last_data:
+                for l in last_data:
+                    st.write(f"✅ {l['race_name']}")
+                if st.button("VEDI CLASSIFICHE 📊", use_container_width=True):
+                    st.switch_page("pages/02_Classifiche.py")
 
-            st.caption("🏁 IN CORSO")
-            with st.container(border=True):
-                if current_data:
-                    for c in current_data:
-                        st.write(f"🚴‍♂️ {c['race_name']} (T{c['stage']})")
-                else: 
-                    st.info("Nessuna corsa attiva.")
-
-        with col_right:
-            st.caption("🏆 ULTIMI RISULTATI")
-            with st.container(border=True):
-                if last_data:
-                    for l in last_data:
-                        st.write(f"✅ {l['race_name']}")
-                    if st.button("CLASSIFICHE 🏆", use_container_width=True, type="primary"):
-                        st.switch_page("pages/02_Classifiche.py")
-
-            st.caption("📅 PROSSIME GARE")
-            with st.container(border=True):
-                if upcoming_data:
-                    for u in upcoming_data:
-                        st.markdown(f'<div class="race-row"><span>📅 {u["race_name"]}</span></div>', unsafe_allow_html=True)
-                else:
-                    st.write("Nessuna gara in programma.")
-                    
-    except Exception as e:
-        st.error(f"Errore nel caricamento dati: {e}")
+except Exception as e:
+    st.error(f"Errore nel caricamento: {e}")
