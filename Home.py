@@ -20,7 +20,6 @@ if 'id_user_loggato' not in st.session_state:
 
 # --- 4. LOGICA LOGIN (Se non loggato) ---
 if st.session_state.id_user_loggato is None:
-    # CSS per nascondere la sidebar e centrare il login
     st.markdown("""
         <style>
             [data-testid="stSidebar"], [data-testid="stSidebarCollapsedControl"] { display: none !important; }
@@ -45,16 +44,13 @@ if st.session_state.id_user_loggato is None:
                             "email": email_input, 
                             "password": password_input
                         })
-                        
                         st.session_state.supabase_session = auth_res.session
                         user_id = auth_res.user.id
-                        
                         user_info = (supabase.table("dim_user")
                                      .select("nickname")
                                      .eq("id_user", user_id)
                                      .single()
                                      .execute())
-                        
                         st.session_state.id_user_loggato = user_id
                         st.session_state.nome_user_loggato = user_info.data['nickname']
                         st.rerun()
@@ -83,31 +79,29 @@ if st.session_state.id_user_loggato is None:
     st.stop()
 
 # --- 5. DASHBOARD (UTENTE LOGGATO) ---
-check_auth()      # Protezione e CSS personalizzato
-render_sidebar()  # Navigazione laterale
+check_auth()
+render_sidebar()
 
-# --- HERO SECTION ---
+# --- HERO SECTION OTTIMIZZATA (RIDOTTA) ---
 logo_url = "https://github.com/Jericho1987/virtua_cycling_3.0/blob/main/logo_pwa.png?raw=true"
 
 st.markdown(f"""
-    <div style="background-color: #1e1e1e; padding: 25px; border-radius: 20px; border-left: 8px solid #ff4b4b; margin-bottom: 30px; display: flex; align-items: center;">
-        <img src="{logo_url}" style="width: 80px; margin-right: 25px;">
+    <div style="background-color: #1e1e1e; padding: 12px 20px; border-radius: 15px; border-left: 6px solid #ff4b4b; margin-bottom: 20px; display: flex; align-items: center;">
+        <img src="{logo_url}" style="width: 65px; margin-right: 20px;">
         <div>
-            <h1 style="margin: 0; font-size: 2.2rem; color: white;">👋 Ciao, {st.session_state.nome_user_loggato}!</h1>
-            <p style="margin: 5px 0 0 0; color: #b0b0b0; font-size: 1.1rem;">Bentornato in gruppo. Controlla i tuoi pick e preparati alla volata!</p>
+            <h2 style="margin: 0; font-size: 1.8rem; color: white; line-height: 1.2;">👋 Ciao, {st.session_state.nome_user_loggato}!</h2>
+            <p style="margin: 2px 0 0 0; color: #b0b0b0; font-size: 0.95rem;">Bentornato in gruppo. Controlla i tuoi pick e preparati alla volata!</p>
         </div>
     </div>
 """, unsafe_allow_html=True)
 
 # Griglia Dashboard
 try:
-    # Caricamento dati
     pick_data = supabase.table("view_stage_to_pick").select("*").execute().data
     current_data = supabase.table("view_stage_current").select("*").execute().data
     last_data = supabase.table("view_stage_last_results").select("*").execute().data
     upcoming_data = supabase.table("view_races_upcoming").select("*").execute().data
 
-    # --- RIGA 1: OPERATIVITÀ E RISULTATI ---
     col_top_left, col_top_right = st.columns(2, gap="medium")
 
     with col_top_left:
@@ -136,7 +130,6 @@ try:
 
     st.markdown("<br>", unsafe_allow_html=True) 
 
-    # --- RIGA 2: IN CORSO E PROSSIME GARE ---
     col_bot_left, col_bot_right = st.columns(2, gap="medium")
 
     with col_bot_left:
