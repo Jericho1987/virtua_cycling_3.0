@@ -5,71 +5,78 @@ from supabase import create_client
 NOME_APP = "Virtua Cycling"
 URL_LOGO = "https://github.com/Jericho1987/virtua_cycling_3.0/blob/main/logo_pwa.png?raw=true"
 
-st.set_page_config(
-    page_title=NOME_APP, 
-    layout="wide", 
-    page_icon=URL_LOGO
-)
+st.set_page_config(page_title=NOME_APP, layout="wide", page_icon=URL_LOGO)
 
 # --- 2. CONNESSIONE A SUPABASE ---
 url = st.secrets["SUPABASE_URL"]
 key = st.secrets["SUPABASE_KEY"]
 supabase = create_client(url, key)
 
-# --- 3. CSS CUSTOM (Solo interfaccia) ---
-st.markdown(f"""
-    <style>
-    /* Reset sfondo e stile generale */
-    .stApp {{ background-color: #121212; }}
-    
-    /* Nasconde header, footer e menu Streamlit */
-    #MainMenu {{visibility: hidden;}}
-    footer {{visibility: hidden;}}
-    header {{visibility: hidden;}}
-    
-    /* Ottimizzazione layout mobile */
-    .block-container {{
-        padding-top: 1rem !important;
-        padding-bottom: 3rem !important;
-    }}
-
-    /* Box sezioni stile Dashboard */
-    div[data-testid="stVerticalBlock"] > div[style*="border"] {{
-        background-color: #1e1e1e !important;
-        border: 1px solid #333 !important;
-        border-radius: 15px !important;
-        padding: 20px !important;
-    }}
-
-    /* Input Login */
-    .stTextInput input {{
-        background-color: #262626 !important;
-        color: white !important;
-        border: 1px solid #555 !important;
-    }}
-
-    /* Header sezioni */
-    .section-header {{
-        font-size: 1.4rem;
-        font-weight: bold;
-        margin-bottom: 12px;
-        color: #ffffff;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }}
-    </style>
-    """, unsafe_allow_html=True)
-
-# --- 4. GESTIONE ACCESSO (LOGIN) ---
+# --- 3. GESTIONE STATO ACCESSO ---
 if 'id_user_loggato' not in st.session_state:
     st.session_state.id_user_loggato = None
 
+# --- 4. CSS DINAMICO (NASCONDE SIDEBAR SE NON LOGGATO) ---
 if not st.session_state.id_user_loggato:
-    _, col_login, _ = st.columns([1, 1.5, 1])
+    st.markdown("""
+        <style>
+            /* Nasconde completamente sidebar e tasto di espansione */
+            [data-testid="stSidebar"], [data-testid="stSidebarCollapsedControl"] {
+                display: none !important;
+            }
+            /* Margine superiore per il form di login */
+            .block-container {
+                padding-top: 5rem !important;
+            }
+        </style>
+    """, unsafe_allow_html=True)
+
+# CSS Standard (Attivo sempre, ma visibile solo post-login)
+st.markdown("""
+    <style>
+    footer {visibility: hidden;}
+    [data-testid="stHeader"] { background-color: rgba(0,0,0,0); }
+    
+    .sidebar-user-box {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 5px 0;
+    }
+    .sidebar-user-box img {
+        border-radius: 50% !important;
+        border: 2px solid #ff69b4 !important;
+        width: 45px !important;
+        height: 45px !important;
+        object-fit: cover;
+    }
+
+    .race-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 6px 0;
+        border-bottom: 1px solid #333;
+        font-size: 0.85rem;
+    }
+    
+    .side-header {
+        font-size: 0.7rem;
+        color: #888;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-top: 15px;
+        margin-bottom: 5px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+# --- 5. GESTIONE LOGIN ---
+if not st.session_state.id_user_loggato:
+    _, col_login, _ = st.columns([1, 1.2, 1])
     with col_login:
-        st.image(URL_LOGO, width=150)
-        st.title(f"{NOME_APP}")
+        st.write("")
+        st.image(URL_LOGO, width=100)
+        st.title("Virtua Cycling")
         with st.form("login_form"):
             email_input = st.text_input("Email")
             password_input = st.text_input("Password", type="password")
@@ -83,10 +90,12 @@ if not st.session_state.id_user_loggato:
                     st.error("Credenziali errate")
     st.stop()
 
-# --- 5. DASHBOARD PRINCIPALE ---
-st.title(f"Ciao {st.session_state.nome_user_loggato}! 👋")
+# --- 6. DASHBOARD PRINCIPALE ---
+t1, t2 = st.columns([0.1, 0.9])
+with t1: st.image(URL_LOGO, width=60)
+with t2: st.markdown(f"### Ciao {st.session_state.nome_user_loggato}! 👋")
 
-# Recupero dati dalle View
+# Recupero dati
 pick_data = supabase.table("view_stage_to_pick").select("*").execute().data
 current_data = supabase.table("view_stage_current").select("*").execute().data
 last_data = supabase.table("view_stage_last_results").select("*").execute().data
@@ -95,64 +104,69 @@ upcoming_data = supabase.table("view_races_upcoming").select("*").execute().data
 col_left, col_right = st.columns(2, gap="medium")
 
 with col_left:
-    st.markdown('<div class="section-header">✍️ Pick da fare</div>', unsafe_allow_html=True)
+    st.caption("✍️ PICK DA FARE")
     with st.container(border=True):
         if pick_data:
             for p in pick_data:
-                c1, c2 = st.columns([3, 1])
-                with c1:
-                    st.write(f"**{p['race_name']}**")
-                    st.caption(f"Tappa {p['stage']} • Scadenza: {p['stage_time']}")
-                with c2:
-                    if st.button("Vai ✍️", key=f"btn_{p['id_stage']}", use_container_width=True):
-                        st.session_state.gara_selezionata_id = p['id_race']
-                        st.session_state.tappa_selezionata_id = p['id_stage']
-                        st.switch_page("pages/01_Inserimento.py")
-                st.divider()
-        else:
-            st.write("Tutti i pick sono completati! ✅")
+                c1, c2 = st.columns([0.75, 0.25])
+                c1.write(f"**{p['race_name']}**\nT{p['stage']}")
+                if c2.button("Vai", key=f"p_{p['id_stage']}", use_container_width=True):
+                    st.session_state.gara_selezionata_id = p['id_race']
+                    st.session_state.tappa_selezionata_id = p['id_stage']
+                    st.switch_page("pages/01_Inserimento.py")
+        else: st.success("Pick completati! ✅")
 
-    st.write("") 
-
-    st.markdown('<div class="section-header">🏁 In corso</div>', unsafe_allow_html=True)
+    st.caption("🏁 IN CORSO")
     with st.container(border=True):
         if current_data:
             for c in current_data:
-                st.write(f"🚴‍♂️ **{c['race_name']}**")
-                st.caption(f"Tappa {c['stage']} • Live")
-                st.divider()
-        else:
-            st.write("Nessuna corsa attiva al momento.")
+                st.write(f"🚴‍♂️ {c['race_name']} (T{c['stage']})")
+        else: st.info("Nessuna corsa attiva.")
 
 with col_right:
-    st.markdown('<div class="section-header">🏆 Ultimi Risultati</div>', unsafe_allow_html=True)
+    st.caption("🏆 ULTIMI RISULTATI")
     with st.container(border=True):
         if last_data:
-            st.write(f"Risultati del: {last_data[0]['stage_date']}")
             for l in last_data:
-                st.write(f"✅ **{l['race_name']}**")
-            if st.button("VEDI CLASSIFICHE 🏆", use_container_width=True):
+                st.write(f"✅ {l['race_name']}")
+            if st.button("CLASSIFICHE 🏆", use_container_width=True, type="primary"):
                 st.switch_page("pages/02_Classifiche.py")
-        else:
-            st.write("In attesa di risultati ufficiali.")
 
-    st.write("") 
-
-    st.markdown('<div class="section-header">📅 Prossime Gare</div>', unsafe_allow_html=True)
+    st.caption("📅 PROSSIME GARE")
     with st.container(border=True):
         if upcoming_data:
             for u in upcoming_data:
-                st.write(f"📅 **{u['race_name']}**")
-                st.caption(f"Data: {u['stage_date']}")
-                st.divider()
-        else:
-            st.write("Calendario in fase di definizione.")
+                st.markdown(f'<div class="race-row"><span>📅 {u["race_name"]}</span><span style="color:#666;">{u["stage_date"]}</span></div>', unsafe_allow_html=True)
 
-# Sidebar
+# --- 7. SIDEBAR (LOGICA MANUALE) ---
 with st.sidebar:
-    st.image(URL_LOGO, width=100)
-    st.write(f"Utente: **{st.session_state.nome_user_loggato}**")
-    st.divider()
-    if st.button("Esci 🚪", use_container_width=True):
+    # Navigazione Standard
+    st.page_link("home.py", label="Home", icon="🏠")
+    st.page_link("pages/01_Inserimento.py", label="Pick", icon="✍️")
+    st.page_link("pages/02_Classifiche.py", label="Classifiche", icon="🏆")
+
+    st.markdown("---")
+    
+    # Area Personale
+    st.markdown('<p class="side-header">Area Personale</p>', unsafe_allow_html=True)
+    st.markdown(f"""
+        <div class="sidebar-user-box">
+            <img src="https://github.com/Jericho1987/virtua_cycling_3.0/blob/main/rider_logo.jpg?raw=true">
+            <span style="font-weight: 700; font-size: 1.1rem;">{st.session_state.nome_user_loggato}</span>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    col_s1, col_s2 = st.columns(2)
+    col_s1.button("⚙️", help="Profilo", use_container_width=True)
+    if col_s2.button("🚪", help="Esci", use_container_width=True):
         st.session_state.id_user_loggato = None
         st.rerun()
+    
+    st.markdown("---")
+    
+    # --- SEZIONE AMMINISTRAZIONE (Sempre visibile dopo il login) ---
+    st.markdown('<p class="side-header" style="color: #ff4b4b;">🛠️ Amministrazione</p>', unsafe_allow_html=True)
+    st.page_link("pages/03_Gestione_Risultati.py", label="Gestione Risultati", icon="📊")
+    st.page_link("pages/04_Upload_Startlist.py", label="Upload Startlist", icon="📑")
+    st.page_link("pages/05_Upload_Mass_Results.py", label="Upload Mass Results", icon="🗂️")
+    st.page_link("pages/06_insert_pick_massive.py", label="Insert Pick Massive", icon="⚡")
