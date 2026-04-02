@@ -73,7 +73,6 @@ if st.session_state.id_user_loggato is None:
                 if st.form_submit_button("REGISTRATI ✨", use_container_width=True):
                     try:
                         # Registrazione su Supabase Auth
-                        # Passiamo il nickname nei metadati così il tuo trigger può leggerlo
                         supabase.auth.sign_up({
                             "email": new_email,
                             "password": new_password,
@@ -104,11 +103,12 @@ try:
     last_data = supabase.table("view_stage_last_results").select("*").execute().data
     upcoming_data = supabase.table("view_races_upcoming").select("*").execute().data
 
+    # Layout a due colonne
     col_left, col_right = st.columns(2, gap="medium")
 
     # --- COLONNA SINISTRA: OPERATIVITÀ ---
     with col_left:
-        st.subheader("✍️ Pick da fare")
+        st.subheader("✍️ Pick da fare") # Titolo principale allineato
         with st.container(border=True):
             if pick_data:
                 for p in pick_data:
@@ -131,7 +131,7 @@ try:
 
     # --- COLONNA DESTRA: STATISTICHE E PROGRAMMA ---
     with col_right:
-        st.caption("🏆 ULTIMI RISULTATI")
+        st.subheader("🏆 Ultimi risultati") # Titolo principale allineato con quello a sinistra
         with st.container(border=True):
             if last_data:
                 for l in last_data:
@@ -139,6 +139,8 @@ try:
                 
                 if st.button("CLASSIFICHE 🏆", use_container_width=True, type="primary"):
                     st.switch_page("pages/02_Classifiche.py")
+            else:
+                st.info("Nessun risultato recente.")
 
         st.caption("📅 PROSSIME GARE")
         with st.container(border=True):
