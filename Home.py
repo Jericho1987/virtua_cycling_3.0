@@ -59,6 +59,30 @@ if st.session_state.id_user_loggato is None:
                         st.rerun()
                     except Exception:
                         st.error("Credenziali errate.")
+
+        with tab_reg:
+            with st.form("registration_form"):
+                new_email = st.text_input("Email")
+                new_password = st.text_input("Password", type="password")
+                new_nickname = st.text_input("Nickname")
+                
+                if st.form_submit_button("REGISTRATI ✨", use_container_width=True):
+                    try:
+                        # Registrazione su Supabase Auth
+                        # Passiamo il nickname nei metadati così il tuo trigger può leggerlo
+                        supabase.auth.sign_up({
+                            "email": new_email,
+                            "password": new_password,
+                            "options": {
+                                "data": {
+                                    "nickname": new_nickname
+                                }
+                            }
+                        })
+                        st.success("Registrazione effettuata! Ora puoi accedere.")
+                    except Exception as e:
+                        st.error(f"Errore: {e}")
+
     st.stop()
 
 # --- 5. DASHBOARD (UTENTE LOGGATO) ---
