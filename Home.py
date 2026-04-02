@@ -1,58 +1,85 @@
 import streamlit as st
 from supabase import create_client
 
-# 1. Configurazione Pagina
-st.set_page_config(page_title="FantaCiclismo Dashboard", layout="wide", page_icon="🚴‍♂️")
+# --- 1. CONFIGURAZIONE BRANDING ---
+NOME_APP = "Virtua Cycling"
+URL_LOGO = "https://github.com/Jericho1987/virtua_cycling_3.0/blob/main/virtua%20cycling%20logo%20app.png?raw=true"
 
-# 2. Connessione a Supabase
+st.set_page_config(
+    page_title=NOME_APP, 
+    layout="wide", 
+    page_icon=URL_LOGO
+)
+
+# --- 2. CONNESSIONE A SUPABASE ---
 url = st.secrets["SUPABASE_URL"]
 key = st.secrets["SUPABASE_KEY"]
 supabase = create_client(url, key)
 
-# --- 3. CSS PER IL LAYOUT A BLOCCHI E VISIBILITÀ ---
-st.markdown("""
-    <style>
-    .stApp { background-color: #121212; }
+# --- 3. LOGICA PWA & CSS CUSTOM ---
+st.markdown(f"""
+    <link rel="manifest" href="/manifest.json">
+    <script>
+      if ('serviceWorker' in navigator) {{
+        navigator.serviceWorker.register('/sw.js');
+      }}
+    </script>
     
-    /* Stile per i contenitori bianchi/grigi definiti */
-    div[data-testid="stVerticalBlock"] > div[style*="border"] {
+    <style>
+    .stApp {{ background-color: #121212; }}
+    
+    /* TOCCO PRO: Nasconde header e footer per simulare App Nativa */
+    #MainMenu {{visibility: hidden;}}
+    footer {{visibility: hidden;}}
+    header {{visibility: hidden;}}
+    
+    /* Ottimizzazione layout mobile */
+    .block-container {{
+        padding-top: 1rem !important;
+        padding-bottom: 3rem !important;
+    }}
+
+    /* Box sezioni stile Dashboard */
+    div[data-testid="stVerticalBlock"] > div[style*="border"] {{
         background-color: #1e1e1e !important;
         border: 1px solid #333 !important;
-        border-radius: 10px !important;
+        border-radius: 15px !important;
         padding: 20px !important;
-    }
+    }}
 
-    /* Input visibili nel login */
-    .stTextInput input {
+    /* Input Login */
+    .stTextInput input {{
         background-color: #262626 !important;
         color: white !important;
         border: 1px solid #555 !important;
-    }
+    }}
 
-    /* Titoli sezioni */
-    .section-header {
-        font-size: 1.5rem;
+    /* Header sezioni con icone */
+    .section-header {{
+        font-size: 1.4rem;
         font-weight: bold;
-        margin-bottom: 15px;
+        margin-bottom: 12px;
+        color: #ffffff;
         display: flex;
         align-items: center;
-        gap: 10px;
-    }
+        gap: 8px;
+    }}
     </style>
     """, unsafe_allow_html=True)
 
-# 4. Gestione Accesso
+# --- 4. GESTIONE ACCESSO (LOGIN) ---
 if 'id_user_loggato' not in st.session_state:
     st.session_state.id_user_loggato = None
 
 if not st.session_state.id_user_loggato:
     _, col_login, _ = st.columns([1, 1.5, 1])
     with col_login:
-        st.title("🚴‍♂️ FantaCiclismo PRO")
+        st.image(URL_LOGO, width=150)
+        st.title(f"{NOME_APP}")
         with st.form("login_form"):
             email_input = st.text_input("Email")
             password_input = st.text_input("Password", type="password")
-            if st.form_submit_button("ACCEDI 🚀", use_container_width=True):
+            if st.form_submit_button("ACCEDI ALLA GARA 🚀", use_container_width=True):
                 query = supabase.table("dim_user").select("*").eq("email", email_input).eq("password", password_input).execute()
                 if query.data:
                     st.session_state.id_user_loggato = query.data[0]['id_user']
@@ -62,8 +89,18 @@ if not st.session_state.id_user_loggato:
                     st.error("Credenziali errate")
     st.stop()
 
-# --- 5. DASHBOARD PRINCIPALE (LAYOUT ORIGINALE) ---
-st.title(f"Benvenuto, {st.session_state.nome_user_loggato}! 👋")
+# --- 5. MESSAGGIO INSTALLAZIONE PWA (Solo post-login) ---
+if 'avviso_pwa_mostrato' not in st.session_state:
+    st.toast(f"📱 Installa {NOME_APP} sul tuo smartphone!", icon="💡")
+    with st.expander("📲 Come usare Virtua Cycling come un'App"):
+        st.info("""
+        **iPhone (Safari):** Clicca l'icona 'Condividi' (quadrato con freccia) e seleziona **'Aggiungi alla schermata Home'**.
+        \n**Android (Chrome):** Clicca i tre puntini in alto e seleziona **'Installa applicazione'**.
+        """)
+    st.session_state.avviso_pwa_mostrato = True
+
+# --- 6. DASHBOARD PRINCIPALE ---
+st.title(f"Ciao {st.session_state.nome_user_loggato}! 👋")
 
 # Recupero dati dalle View
 pick_data = supabase.table("view_stage_to_pick").select("*").execute().data
@@ -71,8 +108,7 @@ current_data = supabase.table("view_stage_current").select("*").execute().data
 last_data = supabase.table("view_stage_last_results").select("*").execute().data
 upcoming_data = supabase.table("view_races_upcoming").select("*").execute().data
 
-# Layout a due grandi colonne
-col_left, col_right = st.columns(2, gap="large")
+col_left, col_right = st.columns(2, gap="medium")
 
 with col_left:
     # --- BLOCCO 1: PICK DA FARE ---
@@ -82,8 +118,8 @@ with col_left:
             for p in pick_data:
                 c1, c2 = st.columns([3, 1])
                 with c1:
-                    st.write(f"**{p['race_name']}** - Tappa {p['stage']}")
-                    st.caption(f"👥 {p['pick_limit']} slot • ⏰ Parte alle: {p['stage_time']}")
+                    st.write(f"**{p['race_name']}**")
+                    st.caption(f"Tappa {p['stage']} • Scadenza: {p['stage_time']}")
                 with c2:
                     if st.button("Vai ✍️", key=f"btn_{p['id_stage']}", use_container_width=True):
                         st.session_state.gara_selezionata_id = p['id_race']
@@ -91,38 +127,38 @@ with col_left:
                         st.switch_page("pages/01_Inserimento.py")
                 st.divider()
         else:
-            st.write("Nessun pick da fare.")
+            st.write("Tutti i pick sono completati! ✅")
 
-    st.write("") # Spaziatore
+    st.write("") 
 
     # --- BLOCCO 2: GARA IN CORSO ---
-    st.markdown('<div class="section-header">🏁 Gara in corso</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">🏁 In corso</div>', unsafe_allow_html=True)
     with st.container(border=True):
         if current_data:
             for c in current_data:
                 st.write(f"🚴‍♂️ **{c['race_name']}**")
-                st.caption(f"Tappa {c['stage']} • In svolgimento")
+                st.caption(f"Tappa {c['stage']} • Live")
                 st.divider()
         else:
-            st.write("Nessuna gara attiva.")
+            st.write("Nessuna corsa attiva al momento.")
 
 with col_right:
     # --- BLOCCO 3: ULTIMI RISULTATI ---
-    st.markdown('<div class="section-header">⏪ Ultimi Risultati</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">🏆 Ultimi Risultati</div>', unsafe_allow_html=True)
     with st.container(border=True):
         if last_data:
-            st.write(f"Gare del: {last_data[0]['stage_date']}")
+            st.write(f"Risultati del: {last_data[0]['stage_date']}")
             for l in last_data:
-                st.write(f"✅ **{l['race_name']}** (Tappa {l['stage']})")
-            if st.button("VEDI TUTTI 🏆", use_container_width=True):
+                st.write(f"✅ **{l['race_name']}**")
+            if st.button("VEDI CLASSIFICHE 🏆", use_container_width=True):
                 st.switch_page("pages/02_Classifiche.py")
         else:
-            st.write("Nessun risultato recente.")
+            st.write("In attesa di risultati ufficiali.")
 
-    st.write("") # Spaziatore
+    st.write("") 
 
-    # --- BLOCCO 4: PROSSIMI APPUNTAMENTI ---
-    st.markdown('<div class="section-header">📅 Prossimi appuntamenti</div>', unsafe_allow_html=True)
+    # --- BLOCCO 4: CALENDARIO ---
+    st.markdown('<div class="section-header">📅 Prossime Gare</div>', unsafe_allow_html=True)
     with st.container(border=True):
         if upcoming_data:
             for u in upcoming_data:
@@ -130,13 +166,13 @@ with col_right:
                 st.caption(f"Data: {u['stage_date']}")
                 st.divider()
         else:
-            st.write("Calendario in aggiornamento.")
+            st.write("Calendario in fase di definizione.")
 
-# Sidebar minimalista (Log out a sinistra)
+# Sidebar
 with st.sidebar:
-    st.image("https://cdn-icons-png.flaticon.com/512/3774/3774270.png", width=60)
-    st.write(f"👤 Utente: **{st.session_state.nome_user_loggato}**")
+    st.image(URL_LOGO, width=100)
+    st.write(f"Utente: **{st.session_state.nome_user_loggato}**")
     st.divider()
-    if st.button("Logout 🚪", use_container_width=True):
+    if st.button("Esci 🚪", use_container_width=True):
         st.session_state.id_user_loggato = None
         st.rerun()
