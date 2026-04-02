@@ -141,7 +141,7 @@ with col_right:
 # --- 7. SIDEBAR (LOGICA MANUALE) ---
 with st.sidebar:
     # Navigazione Standard
-    st.page_link("home.py", label="Home", icon="🏠")
+    st.page_link("Home.py", label="Home", icon="🏠")
     st.page_link("pages/01_Inserimento.py", label="Pick", icon="✍️")
     st.page_link("pages/02_Classifiche.py", label="Classifiche", icon="🏆")
 
