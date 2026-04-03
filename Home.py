@@ -79,14 +79,15 @@ if st.session_state.id_user_loggato is None:
                     try:
                         supabase.auth.sign_up({"email": n_e, "password": n_p, "options": {"data": {"nickname": n_n}}})
                         st.success("Ok! Ora accedi.")
-                    except Exception as e: st.error(f"Errore: {e}")
+                    except Exception as e: 
+                        st.error(f"Errore: {e}")
     st.stop()
 
 # --- DASHBOARD UTENTE ---
 check_auth()
 render_sidebar()
 
-# MODIFICA: Forziamo il ripristino dell'hamburger button e della sidebar dopo il login
+# FORZA RIPRISTINO SIDEBAR PER MOBILE
 st.markdown("""
     <style>
         [data-testid="stSidebar"], [data-testid="stSidebarCollapsedControl"] { 
@@ -112,34 +113,71 @@ try:
     l_d = supabase.table("view_stage_last_results").select("*").execute().data
     u_d = supabase.table("view_races_upcoming").select("*").execute().data
 
-    # --- 1. SEZIONE PICK DA FARE (FULL WIDTH) ---
+    # --- 1. SEZIONE PICK DA FARE ---
     st.markdown('<div class="section-title">✍️ Pick da fare</div>', unsafe_allow_html=True)
     with st.container(border=True):
         if p_d:
             for p in p_d:
                 nome_mostrato = p['race_name'] if p.get('id_type_race') == 3 else f"{p['race_name']} (T{p['stage']})"
-                
                 countdown_html = ""
                 try:
                     d_val = datetime.fromisoformat(p['stage_date']) if isinstance(p['stage_date'], str) else p['stage_date']
                     t_val = datetime.strptime(p['stage_time'], "%H:%M:%S").time() if isinstance(p['stage_time'], str) else p['stage_time']
                     deadline = datetime.combine(d_val, t_val)
-                    
                     diff = deadline - datetime.now()
                     if diff.total_seconds() > 0:
                         giorni, ore, minuti = diff.days, diff.seconds // 3600, (diff.seconds // 60) % 60
                         color_num = "#ff4b4b" if giorni == 0 and ore < 12 else "#b0b0b0"
                         bg_panel = "#0e1117"
-                        
                         countdown_html = f'''
                             <div style="display: flex; align-items: center; gap: 4px; font-family: 'Courier New', monospace; font-weight: bold; margin-left: 12px; transform: scale(0.95); transform-origin: left center;">
                                 <span style="color: #606060; font-size: 0.7rem; margin-right: 2px;">⏳</span>
-                                {f'<div style="background-color: {bg_panel}; color: {color_num}; padding: 3px 6px; border-radius: 4px; border: 1px solid #333; box-shadow: inset 0 0 5px rgba(0,0,0,0.5);">{giorni:02d}<span style="font-size: 0.6rem; color: #606060; margin-left: 1px;">d</span></div>' if giorni > 0 else ''}
-                                <div style="background-color: {bg_panel}; color: {color_num}; padding: 3px 6px; border-radius: 4px; border: 1px solid #333; box-shadow: inset 0 0 5px rgba(0,0,0,0.5);">{ore:02d}<span style="font-size: 0.6rem; color: #606060; margin-left: 1px;">h</span></div>
+                                {'<div style="background-color: '+bg_panel+'; color: '+color_num+'; padding: 3px 6px; border-radius: 4px; border: 1px solid #333;">'+f"{giorni:02d}"+'<span style="font-size: 0.6rem; color: #606060; margin-left: 1px;">d</span></div>' if giorni > 0 else ''}
+                                <div style="background-color: {bg_panel}; color: {color_num}; padding: 3px 6px; border-radius: 4px; border: 1px solid #333;">{ore:02d}<span style="font-size: 0.6rem; color: #606060; margin-left: 1px;">h</span></div>
                                 <span style="color: #333; font-size: 1rem;">:</span>
-                                <div style="background-color: {bg_panel}; color: {color_num}; padding: 3px 6px; border-radius: 4px; border: 1px solid #333; box-shadow: inset 0 0 5px rgba(0,0,0,0.5);">{minuti:02d}<span style="font-size: 0.6rem; color: #606060; margin-left: 1px;">m</span></div>
+                                <div style="background-color: {bg_panel}; color: {color_num}; padding: 3px 6px; border-radius: 4px; border: 1px solid #333;">{minuti:02d}<span style="font-size: 0.6rem; color: #606060; margin-left: 1px;">m</span></div>
                             </div>
                         '''
-                except: pass
+                except:
+                    pass
 
-                col_txt,
+                col_txt, col_btn = st.columns([0.8, 0.2])
+                col_txt.markdown(f"<div style='display: flex; align-items: center; min-height: 45px;'><b>{nome_mostrato}</b>{countdown_html}</div>", unsafe_allow_html=True)
+                if col_btn.button("Vai", key=f"p_{p['id_stage']}", use_container_width=True):
+                    st.session_state.gara_selezionata_id = p['id_race']
+                    st.session_state.tappa_selezionata_id = p['id_stage']
+                    st.switch_page("pages/01_Inserimento.py")
+                st.markdown("<hr>", unsafe_allow_html=True)
+        else:
+            st.success("Tutti i pick sono completi ✅")
+
+    # --- 2. SEZIONE ULTIMI RISULTATI ---
+    st.markdown('<div class="section-title">🏆 Ultimi risultati</div>', unsafe_allow_html=True)
+    with st.container(border=True):
+        if l_d:
+            for l in l_d:
+                st.markdown(f"✅ {l['race_name']}")
+            st.button("VEDI TUTTE LE CLASSIFICHE 🏆", use_container_width=True, type="primary", on_click=lambda: st.switch_page("pages/02_Classifiche.py"))
+        else:
+            st.info("In attesa di risultati.")
+
+    # --- 3. SEZIONE IN CORSO ---
+    st.markdown('<div class="section-title">🏁 In corso</div>', unsafe_allow_html=True)
+    with st.container(border=True):
+        if c_d:
+            for c in c_d:
+                st.markdown(f"🚴‍♂️ **{c['race_name']}** (Tappa {c['stage']})")
+        else:
+            st.info("Nessuna gara live in questo momento.")
+
+    # --- 4. SEZIONE PROSSIME GARE ---
+    st.markdown('<div class="section-title">📅 Prossime gare</div>', unsafe_allow_html=True)
+    with st.container(border=True):
+        if u_d:
+            for u in u_d:
+                st.markdown(f"📅 {u['race_name']}")
+        else:
+            st.write("Nessuna gara in programma a breve.")
+
+except Exception as e:
+    st.error(f"Errore nel caricamento dati: {e}")
