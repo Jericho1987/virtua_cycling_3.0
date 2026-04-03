@@ -29,7 +29,7 @@ def check_auth():
         }
         [data-testid="stDecoration"] { display: none; }
 
-        /* Container delle Card (i box bianchi/grigi di Streamlit) */
+        /* Container delle Card */
         div[data-testid="stVerticalBlock"] > div > div[style*="border"] {
             background: rgba(30, 30, 30, 0.6) !important;
             border: 1px solid rgba(255, 255, 255, 0.1) !important;
@@ -38,7 +38,6 @@ def check_auth():
             transition: all 0.3s ease;
         }
         
-        /* Effetto Hover sulle Card */
         div[data-testid="stVerticalBlock"] > div > div[style*="border"]:hover {
             transform: translateY(-5px);
             border-color: #ff4b4b !important;
@@ -125,5 +124,6 @@ def render_sidebar():
             st.page_link("pages/04_Upload_Startlist.py", label="Startlist", icon="📑")
             st.page_link("pages/05_Upload_Mass_Results.py", label="Mass Results", icon="🗂️")
             st.page_link("pages/06_insert_pick_massive.py", label="Massive Pick", icon="⚡")
-            # Questa è la riga che mancava o non veniva caricata:
             st.page_link("pages/08_Gestione_Date.py", label="Gestione Corse", icon="📅")
+            # --- NUOVA PAGINA AGGIUNTA QUI ---
+            st.page_link("pages/09_gestione_team.py", label="Gestione Team", icon="🚴‍♂️")
