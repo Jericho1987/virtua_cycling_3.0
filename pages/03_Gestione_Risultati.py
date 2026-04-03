@@ -63,15 +63,15 @@ else:
             c1.write(r['rider_name'])
             
             # --- FIX ERRORE VALORE MASSIMO ---
-            # Se il valore nel DB è > 200, lo forziamo a 200 per evitare il crash di Streamlit
+            # Se il valore nel DB è > 300, lo forziamo a 999 per evitare il crash di Streamlit
             val_db = int(r['current_rank']) if r['current_rank'] is not None else 0
-            val_iniziale = min(val_db, 200)
+            val_iniziale = min(val_db, 999)
             
             # Input numerico
             nuovo_rank = c2.number_input(
                 f"Rank {r['id_rider']}", 
                 min_value=0, 
-                max_value=200, 
+                max_value=999, 
                 value=val_iniziale, 
                 key=f"in_{r['id_rider']}", 
                 label_visibility="collapsed"
