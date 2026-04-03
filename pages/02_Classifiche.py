@@ -19,14 +19,44 @@ supabase = create_client(url, key)
 
 st.title("📊 Simulazione Classifica Live")
 
+# --- LOGICA RECUPERO PARAMETRI DA HOME ---
+default_race_id = st.session_state.get('gara_selezionata_id')
+default_stage_id = st.session_state.get('tappa_selezionata_id')
+
 # --- FILTRI ---
 col_f1, col_f2 = st.columns(2)
+
 with col_f1:
     gare = supabase.table("dim_race").select("id_race, name").execute().data
-    sel_gara = st.selectbox("Seleziona Gara", gare, format_func=lambda x: x['name'])
+    
+    # Cerchiamo l'indice della gara passata dalla Home
+    idx_g = 0
+    if default_race_id:
+        for i, g in enumerate(gare):
+            if g['id_race'] == default_race_id:
+                idx_g = i
+                break
+    
+    sel_gara = st.selectbox("Seleziona Gara", gare, index=idx_g, format_func=lambda x: x['name'])
+
 with col_f2:
     tappe = supabase.table("dim_race_stage").select("id_stage, id_stage_number").eq("id_race", sel_gara['id_race']).order("id_stage_number").execute().data
-    sel_tappa = st.selectbox("Seleziona Tappa", tappe, format_func=lambda x: f"Tappa {x['id_stage_number']}")
+    
+    # Cerchiamo l'indice della tappa passata dalla Home
+    idx_t = 0
+    if default_stage_id:
+        for i, t in enumerate(tappe):
+            if t['id_stage'] == default_stage_id:
+                idx_t = i
+                break
+                
+    sel_tappa = st.selectbox("Seleziona Tappa", tappe, index=idx_t, format_func=lambda x: f"Tappa {x['id_stage_number']}")
+
+# Pulizia immediata dello stato per permettere cambi manuali successivi
+if 'gara_selezionata_id' in st.session_state:
+    del st.session_state.gara_selezionata_id
+if 'tappa_selezionata_id' in st.session_state:
+    del st.session_state.tappa_selezionata_id
 
 st.markdown("---")
 
@@ -40,11 +70,10 @@ res = supabase.table("view_simulazione_punti")\
 if res.data:
     df = pd.DataFrame(res.data)
     
-    # --- 1. IL PODIO (SPOSTATO SOPRA) ---
+    # --- 1. IL PODIO ---
     st.subheader("🏆 Il Podio")
     podio_cols = st.columns(3)
     
-    # Definiamo i primi 3 per i widget
     for i in range(3):
         with podio_cols[i]:
             if len(df) > i:
@@ -54,12 +83,11 @@ if res.data:
             else:
                 st.empty()
 
-    st.write("") # Spaziatore
+    st.write("") 
 
     # --- 2. IL TABELLONE COMPLETO ---
     st.subheader(f"Classifica Completa: {sel_gara['name']} - T{sel_tappa['id_stage_number']}")
     
-    # Trasformazione icone per la tabella
     def make_pretty_pos(pos):
         if pos == 1: return "🥇"
         if pos == 2: return "🥈"
@@ -68,11 +96,9 @@ if res.data:
 
     df['Rank'] = df['posizione_classifica'].apply(make_pretty_pos)
     
-    # Prepariamo il DF per la visualizzazione
     df_view = df[['Rank', 'display_name', 'punti_totali']].copy()
     df_view.columns = ["Pos.", "Giocatore", "Punteggio"]
 
-    # Visualizzazione con stile
     st.dataframe(
         df_view, 
         use_container_width=True, 
