@@ -17,7 +17,7 @@ url = st.secrets["SUPABASE_URL"]
 key = st.secrets["SUPABASE_KEY"]
 supabase = create_client(url, key)
 
-st.title("📊 Simulazione Classifica Live")
+st.title("📊 Classifica")
 
 # --- 1. RECUPERO PARAMETRI (SENZA CANCELLARLI SUBITO) ---
 # Usiamo variabili locali per non perdere il riferimento durante il caricamento
