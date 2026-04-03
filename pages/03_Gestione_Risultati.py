@@ -1,13 +1,12 @@
 import streamlit as st
 from supabase import create_client
-from auth_utils import check_auth, render_sidebar # <--- 1. AGGIUNGI QUESTA RIGA
+from auth_utils import check_auth, render_sidebar 
 
 st.set_page_config(page_title="Gestione Risultati", layout="wide", page_icon="⚙️")
 
 # --- PROTEZIONE E SIDEBAR ---
-check_auth()      # <--- 2. AGGIUNGI QUESTA (Blocca i non loggati e mette il CSS)
-render_sidebar()  # <--- 3. AGGIUNGI QUESTA (Disegna i link e l'area utente)
-
+check_auth()      
+render_sidebar()  
 
 # Inizializzazione Supabase
 url = st.secrets["SUPABASE_URL"]
@@ -39,7 +38,6 @@ with col2:
 st.divider()
 
 # --- 2. CARICAMENTO DATI DALLA VIEW ---
-# Questa view ci mostra i ciclisti scelti dagli utenti e la loro posizione attuale (se già inserita)
 res = supabase.table("view_admin_riders_to_score")\
     .select("*")\
     .eq("id_stage", sel_tappa['id_stage'])\
@@ -50,10 +48,10 @@ if not res.data:
 else:
     st.subheader(f"Ordine d'arrivo: {sel_gara['name']}")
     
-    # Usiamo un form per evitare che la pagina si ricarichi a ogni numero inserito
+    # Inizializziamo la lista payload fuori dal form per il debug
+    lista_payload = []
+    
     with st.form("form_gestione_risultati"):
-        lista_payload = []
-        
         # Header Tabella
         h1, h2, h3 = st.columns([3, 1, 1])
         h1.write("**Ciclista (Scelto dagli utenti)**")
@@ -64,8 +62,10 @@ else:
             c1, c2, c3 = st.columns([3, 1, 1])
             c1.write(r['rider_name'])
             
-            # Valore attuale dal DB (se presente)
-            val_iniziale = int(r['current_rank']) if r['current_rank'] is not None else 0
+            # --- FIX ERRORE VALORE MASSIMO ---
+            # Se il valore nel DB è > 200, lo forziamo a 200 per evitare il crash di Streamlit
+            val_db = int(r['current_rank']) if r['current_rank'] is not None else 0
+            val_iniziale = min(val_db, 200)
             
             # Input numerico
             nuovo_rank = c2.number_input(
@@ -80,7 +80,6 @@ else:
             # Checkbox DNF
             is_dnf = c3.checkbox("DNF", key=f"dnf_{r['id_rider']}")
             
-            # Costruzione oggetto per Supabase
             lista_payload.append({
                 "id_race": r['id_race'],
                 "id_stage": r['id_stage'],
@@ -91,13 +90,13 @@ else:
             })
         
         st.write("")
+        # --- FIX MISSING SUBMIT BUTTON ---
+        # Il bottone deve essere l'ultimo elemento DENTRO il blocco 'with st.form'
         invio = st.form_submit_button("💾 SALVA E AGGIORNA CLASSIFICHE", use_container_width=True, type="primary")
 
-    # --- 3. LOGICA DI SALVATAGGIO ---
+    # --- 3. LOGICA DI SALVATAGGIO (eseguita solo al submit) ---
     if invio:
         try:
-            # Eseguiamo l'UPSERT
-            # Grazie al vincolo unique_result_stage_rider, sovrascriverà se trova doppioni
             response = supabase.table("fact_results").upsert(
                 lista_payload, 
                 on_conflict="id_stage, id_rider"
@@ -106,7 +105,6 @@ else:
             if response.data:
                 st.success(f"✅ Ottimo! Aggiornati {len(response.data)} record nel database.")
                 st.balloons()
-                # st.rerun() è fondamentale per aggiornare la visualizzazione subito dopo il salvataggio
                 st.rerun()
             else:
                 st.error("Il database non ha confermato il salvataggio. Controlla le policy di sicurezza (RLS).")
@@ -114,7 +112,7 @@ else:
         except Exception as e:
             st.error(f"Errore tecnico durante il salvataggio: {e}")
 
-# --- 4. DEBUG (Opzionale) ---
+# --- 4. DEBUG ---
 with st.expander("Dati inviati (Debug)"):
-    if 'lista_payload' in locals():
+    if lista_payload:
         st.json(lista_payload)
