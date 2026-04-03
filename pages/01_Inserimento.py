@@ -37,7 +37,7 @@ user_id = st.session_state.id_user_loggato
 t_race = st.session_state.get('gara_selezionata_id')
 t_stage = st.session_state.get('tappa_selezionata_id')
 
-# --- 1. CARICAMENTO DATI FRESCHI DALLA VIEW ---
+# --- 1. CARICAMENTO DATI PALINSESTO ---
 query = supabase.table("view_stage_to_pick").select("*").execute()
 all_data = query.data
 
@@ -60,14 +60,12 @@ for d in all_data:
 idx_g = next((i for i, g in enumerate(gare_opzioni) if g['id'] == t_race), 0)
 sel_gara = st.selectbox("Seleziona Gara", gare_opzioni, format_func=lambda x: x['name'], index=idx_g, key="sb_gara_main")
 
-# --- 3. LOGICA DI SELEZIONE TAPPA (NASCOSTA SE ONE DAY RACE) ---
+# --- 3. LOGICA DI SELEZIONE TAPPA ---
 tappe_gara = [t for t in all_data if t['id_race'] == sel_gara['id']]
 
 if sel_gara['type'] == 3:
-    # Gara in linea: prendiamo la tappa unica silenziosamente
     sel_tappa = tappe_gara[0]
 else:
-    # Gara a tappe: mostriamo la selezione
     idx_t = next((i for i, t in enumerate(tappe_gara) if t['id_stage'] == t_stage), 0)
     sel_tappa = st.selectbox(
         "Seleziona Tappa",
@@ -77,11 +75,15 @@ else:
         key=f"sb_tappa_{sel_gara['id']}"
     )
 
-# --- 4. RECUPERO IL LIMITE ---
-limit = int(sel_tappa['pick_limit'])
+# --- 4. RECUPERO PICK ESISTENTI ---
+# Interroghiamo la nuova vista per vedere se l'utente ha già salvato qualcosa
+res_existing = supabase.table("fact_user_pick")\
+    .select("id_slot, id_rider")\
+    .eq("id_user", user_id)\
+    .eq("id_stage", sel_tappa['id_stage']).execute()
 
-st.divider()
-st.info(f"Regolamento per questa tappa: **{limit} pick richiesti**")
+# Creiamo un dizionario {id_slot: id_rider} per un accesso rapido
+existing_picks = {p['id_slot']: p['id_rider'] for p in res_existing.data}
 
 # --- 5. CARICAMENTO CORRIDORI ---
 res_riders = supabase.table("view_start_list_display")\
@@ -92,13 +94,31 @@ res_riders = supabase.table("view_start_list_display")\
 riders_list = [{"id": None, "nome": "-", "id_team": None}] + \
               [{"id": r['id_rider'], "nome": r['rider_name'], "id_team": r['id_team']} for r in res_riders.data]
 
-# --- 6. GENERAZIONE SLOT DINAMICI (VERTICALE) ---
+# --- 6. GENERAZIONE SLOT DINAMICI ---
+limit = int(sel_tappa['pick_limit'])
+st.divider()
+st.info(f"Regolamento per questa tappa: **{limit} pick richiesti**")
+
 picks = []
 for i in range(limit):
+    slot_number = i + 1
+    # Cerchiamo se c'è un rider già salvato per questo slot
+    saved_rider_id = existing_picks.get(slot_number)
+    
+    # Calcoliamo l'indice di default per la selectbox
+    default_idx = 0
+    if saved_rider_id:
+        # Troviamo la posizione del rider salvato nella lista delle opzioni
+        for idx, rider in enumerate(riders_list):
+            if rider['id'] == saved_rider_id:
+                default_idx = idx
+                break
+    
     p = st.selectbox(
-        f"Slot {i+1}",
+        f"Slot {slot_number}",
         options=riders_list,
         format_func=lambda x: x['nome'],
+        index=default_idx, # Imposta il valore salvato
         key=f"pick_{sel_tappa['id_stage']}_{i}"
     )
     picks.append(p)
@@ -113,7 +133,9 @@ if st.button("🚀 CONFERMA FORMAZIONE", use_container_width=True, type="primary
         st.error("Hai inserito dei corridori duplicati!")
     else:
         try:
+            # Rimuoviamo vecchi pick e inseriamo i nuovi
             supabase.table("fact_user_pick").delete().eq("id_user", user_id).eq("id_stage", sel_tappa['id_stage']).execute()
+            
             to_insert = [{
                 "id_user": user_id,
                 "id_race": sel_gara['id'],
@@ -122,6 +144,7 @@ if st.button("🚀 CONFERMA FORMAZIONE", use_container_width=True, type="primary
                 "id_team": p['id_team'],
                 "id_slot": i + 1
             } for i, p in enumerate(picks)]
+            
             supabase.table("fact_user_pick").insert(to_insert).execute()
             st.success("Salvataggio completato!")
             st.balloons()
