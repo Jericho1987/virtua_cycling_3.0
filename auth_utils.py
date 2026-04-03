@@ -16,27 +16,32 @@ def check_auth():
         
         * { font-family: 'Inter', sans-serif; }
 
-        /* PULIZIA INTERFACCIA STREAMLIT (TOP & BOTTOM) */
-        header[data-testid="stHeader"], 
-        #MainMenu, 
-        footer, 
-        [data-testid="stDecoration"] {
+        /* 1. NASCONDE HEADER COMPLETAMENTE */
+        header, [data-testid="stHeader"] {
             display: none !important;
-            visibility: hidden !important;
+            height: 0 !important;
+            width: 0 !important;
+            overflow: hidden !important;
         }
-        
-        /* RIMOZIONE TOTALE ICONE IN BASSO A DESTRA (BADGE, STATO, CORONA) */
-        /* Colpiamo tutti i possibili contenitori e classi generate da Streamlit Cloud */
-        div[data-testid="stStatusWidget"],
-        .stAppDeployButton,
-        .viewerBadge_container__1QSob,
+
+        /* 2. NASCONDE FOOTER E DECORAZIONI */
+        footer, [data-testid="stDecoration"] {
+            display: none !important;
+        }
+
+        /* 3. NASCONDE PULSANTI FLOATING E BADGE (TENTATIVO DEFINITIVO) */
+        /* Colpiamo i contenitori fissi in basso a destra */
+        .stAppDeployButton, 
+        [data-testid="stStatusWidget"],
+        [data-testid="stStatusWidget"] div,
         div[class*="viewerBadge"],
-        div[class*="stStatusWidget"],
+        div[class*="StatusWidget"],
+        button[title="View source on GitHub"],
         iframe[title="Managed Hosting"] {
             display: none !important;
             visibility: hidden !important;
-            height: 0 !important;
-            width: 0 !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
         }
 
         /* Sidebar Glassmorphism */
@@ -107,7 +112,6 @@ def check_auth():
 def render_sidebar():
     """Disegna la sidebar con lo stile aggiornato."""
     with st.sidebar:
-        # Pagine Standard
         st.page_link("Home.py", label="Home", icon="🏠")
         st.page_link("pages/01_Inserimento.py", label="Pick", icon="✍️")
         st.page_link("pages/02_Classifiche.py", label="Leaderboard", icon="🏆")
@@ -132,7 +136,6 @@ def render_sidebar():
                 st.session_state.clear()
                 st.rerun()
 
-        # Pagine Admin
         if st.session_state.get('is_admin', False):
             st.markdown('<p class="side-header" style="color: #ff4b4b;">Admin Panel</p>', unsafe_allow_html=True)
             st.page_link("pages/03_Gestione_Risultati.py", label="Risultati", icon="📊")
