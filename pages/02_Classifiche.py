@@ -23,17 +23,16 @@ st.title("📊 Classifica")
 target_race = st.session_state.get('gara_selezionata_id')
 target_stage = st.session_state.get('tappa_selezionata_id')
 
-# Se non ci sono parametri passati dalla Home, cerchiamo l'ultimo stage con dati disponibili
 if target_race is None or target_stage is None:
+    # Aggiunto id_type_race alla select per capire subito il tipo di gara
     last_data_query = supabase.table("view_simulazione_punti")\
-        .select("id_stage")\
+        .select("id_stage, id_type_race")\
         .order("id_stage", desc=True)\
         .limit(1)\
         .execute()
     
     if last_data_query.data:
         target_stage = last_data_query.data[0]['id_stage']
-        # Recuperiamo l'id_race corrispondente allo stage trovato
         race_info = supabase.table("dim_race_stage")\
             .select("id_race")\
             .eq("id_stage", target_stage)\
@@ -46,7 +45,8 @@ if target_race is None or target_stage is None:
 col_f1, col_f2 = st.columns(2)
 
 with col_f1:
-    gare = supabase.table("dim_race").select("id_race, name").execute().data
+    # Recuperiamo anche id_type_race per gestire la logica UI
+    gare = supabase.table("dim_race").select("id_race, name, id_type_race").execute().data
     
     idx_g = 0
     if target_race is not None:
@@ -57,57 +57,80 @@ with col_f1:
     
     sel_gara = st.selectbox("Seleziona Gara", gare, index=idx_g, format_func=lambda x: x['name'])
 
+# --- LOGICA ID_TYPE_RACE == 3 ---
+is_one_day_race = sel_gara.get('id_type_race') == 3
+
 with col_f2:
-    tappe = supabase.table("dim_race_stage").select("id_stage, id_stage_number").eq("id_race", sel_gara['id_race']).order("id_stage_number").execute().data
-    
-    idx_t = 0
-    if target_stage is not None:
-        for i, t in enumerate(tappe):
-            if str(t['id_stage']) == str(target_stage):
-                idx_t = i
-                break
-                
-    sel_tappa = st.selectbox("Seleziona Tappa", tappe, index=idx_t, format_func=lambda x: f"Tappa {x['id_stage_number']}")
+    if is_one_day_race:
+        # Se è una gara di un giorno, recuperiamo comunque l'id_stage (che sarà unico) 
+        # ma non mostriamo il selectbox all'utente
+        tappa_data = supabase.table("dim_race_stage")\
+            .select("id_stage, id_stage_number")\
+            .eq("id_race", sel_gara['id_race'])\
+            .limit(1)\
+            .execute().data
+        sel_tappa = tappa_data[0] if tappa_data else None
+        st.info("🏃 Gara in linea (One Day Race)")
+    else:
+        # Logica standard per corse a tappe
+        tappe = supabase.table("dim_race_stage").select("id_stage, id_stage_number").eq("id_race", sel_gara['id_race']).order("id_stage_number").execute().data
+        
+        idx_t = 0
+        if target_stage is not None:
+            for i, t in enumerate(tappe):
+                if str(t['id_stage']) == str(target_stage):
+                    idx_t = i
+                    break
+                    
+        sel_tappa = st.selectbox("Seleziona Tappa", tappe, index=idx_t, format_func=lambda x: f"Tappa {x['id_stage_number']}")
 
 st.markdown("---")
 
 # --- 3. RECUPERO DATI ---
-res = supabase.table("view_simulazione_punti")\
-    .select("posizione_classifica, display_name, punti_totali")\
-    .eq("id_stage", sel_tappa['id_stage'])\
-    .order("posizione_classifica")\
-    .execute()
+if sel_tappa:
+    res = supabase.table("view_simulazione_punti")\
+        .select("posizione_classifica, display_name, punti_totali")\
+        .eq("id_stage", sel_tappa['id_stage'])\
+        .order("posizione_classifica")\
+        .execute()
 
-if res.data:
-    df = pd.DataFrame(res.data)
-    
-    # --- IL PODIO ---
-    st.subheader("🏆 Il Podio")
-    podio_cols = st.columns(3)
-    for i in range(3):
-        with podio_cols[i]:
-            if len(df) > i:
-                user = df.iloc[i]
-                medaglie = ["🥇 1° Posto", "🥈 2° Posto", "🥉 3° Posto"]
-                st.metric(label=medaglie[i], value=f"{user['punti_totali']} pt", delta=user['display_name'], delta_color="off")
+    if res.data:
+        df = pd.DataFrame(res.data)
+        
+        # --- IL PODIO ---
+        st.subheader("🏆 Il Podio")
+        podio_cols = st.columns(3)
+        for i in range(3):
+            with podio_cols[i]:
+                if len(df) > i:
+                    user = df.iloc[i]
+                    medaglie = ["🥇 1° Posto", "🥈 2° Posto", "🥉 3° Posto"]
+                    st.metric(label=medaglie[i], value=f"{user['punti_totali']} pt", delta=user['display_name'], delta_color="off")
 
-    st.write("") 
+        st.write("") 
 
-    # --- IL TABELLONE ---
-    st.subheader(f"Classifica: {sel_gara['name']} - T{sel_tappa['id_stage_number']}")
-    
-    def make_pretty_pos(pos):
-        icons = {1: "🥇", 2: "🥈", 3: "🥉"}
-        return icons.get(pos, str(pos))
+        # --- IL TABELLONE (Titolo condizionale) ---
+        if is_one_day_race:
+            titolo_classifica = f"{sel_gara['name']} - One Day Race"
+        else:
+            titolo_classifica = f"Classifica: {sel_gara['name']} - T{sel_tappa['id_stage_number']}"
+            
+        st.subheader(titolo_classifica)
+        
+        def make_pretty_pos(pos):
+            icons = {1: "🥇", 2: "🥈", 3: "🥉"}
+            return icons.get(pos, str(pos))
 
-    df['Rank'] = df['posizione_classifica'].apply(make_pretty_pos)
-    df_view = df[['Rank', 'display_name', 'punti_totali']].copy()
-    df_view.columns = ["Pos.", "Giocatore", "Punteggio"]
+        df['Rank'] = df['posizione_classifica'].apply(make_pretty_pos)
+        df_view = df[['Rank', 'display_name', 'punti_totali']].copy()
+        df_view.columns = ["Pos.", "Giocatore", "Punteggio"]
 
-    st.dataframe(df_view, use_container_width=True, hide_index=True,
-        column_config={"Punteggio": st.column_config.NumberColumn("Punti", format="%d ⚡")})
+        st.dataframe(df_view, use_container_width=True, hide_index=True,
+            column_config={"Punteggio": st.column_config.NumberColumn("Punti", format="%d ⚡")})
+    else:
+        st.info("Nessun dato disponibile per questa selezione.")
 else:
-    st.info("Nessun dato disponibile per questa selezione.")
+    st.warning("Nessuna tappa trovata per questa gara.")
 
 # --- 4. CANCELLAZIONE PARAMETRI DI NAVIGAZIONE ---
 if 'gara_selezionata_id' in st.session_state:
