@@ -117,7 +117,7 @@ with tab_ins:
 
     limit = int(sel_tappa['pick_limit']) if sel_tappa.get('pick_limit') else (5 if sel_gara['type'] == 3 else 1)
     st.divider()
-    st.info(f"Regolamento: **{limit} pick richiesti**")
+    st.info(f"Regolamento: **{limit} pick richieste**")
 
     picks = []
     for i in range(limit):
@@ -133,7 +133,7 @@ with tab_ins:
         picks.append(p)
 
     st.markdown("<br>", unsafe_allow_html=True)
-    if st.button("🚀 CONFERMA FORMAZIONE", use_container_width=True, type="primary"):
+    if st.button("🚀 CONFERMA PICK", use_container_width=True, type="primary"):
         selected_ids = [p['id'] for p in picks if p['id'] is not None]
         if len(selected_ids) < limit:
             st.error(f"Devi completare tutti i {limit} slot.")
