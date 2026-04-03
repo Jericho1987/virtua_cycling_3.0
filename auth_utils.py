@@ -93,6 +93,7 @@ def check_auth():
 def render_sidebar():
     """Disegna la sidebar con lo stile aggiornato."""
     with st.sidebar:
+        # Pagine Standard
         st.page_link("Home.py", label="Dashboard", icon="🏠")
         st.page_link("pages/01_Inserimento.py", label="Pick", icon="✍️")
         st.page_link("pages/02_Classifiche.py", label="Leaderboard", icon="🏆")
@@ -117,10 +118,12 @@ def render_sidebar():
                 st.session_state.clear()
                 st.rerun()
 
+        # Pagine Admin
         if st.session_state.get('is_admin', False):
             st.markdown('<p class="side-header" style="color: #ff4b4b;">Admin Panel</p>', unsafe_allow_html=True)
             st.page_link("pages/03_Gestione_Risultati.py", label="Risultati", icon="📊")
             st.page_link("pages/04_Upload_Startlist.py", label="Startlist", icon="📑")
             st.page_link("pages/05_Upload_Mass_Results.py", label="Mass Results", icon="🗂️")
             st.page_link("pages/06_insert_pick_massive.py", label="Massive Pick", icon="⚡")
+            # Questa è la riga che mancava o non veniva caricata:
             st.page_link("pages/08_Gestione_Date.py", label="Gestione Corse", icon="📅")
