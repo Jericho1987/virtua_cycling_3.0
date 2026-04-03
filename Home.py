@@ -173,12 +173,15 @@ try:
     with st.container(border=True):
         if l_d:
             for l in l_d:
-                st.markdown(f"✅ {l['race_name']}")
-            
-            col_u_txt, col_u_btn = st.columns([0.8, 0.2])
-            col_u_txt.markdown("<div style='display: flex; align-items: center; min-height: 45px;'>Visualizza classifiche</div>", unsafe_allow_html=True)
-            if col_u_btn.button("Vai", key="btn_classifiche_home", use_container_width=True):
-                st.switch_page("pages/02_Classifiche.py")
+                col_l_txt, col_l_btn = st.columns([0.8, 0.2])
+                col_l_txt.markdown(f"<div style='display: flex; align-items: center; min-height: 45px;'>✅ <b>{l['race_name']}</b></div>", unsafe_allow_html=True)
+                
+                # Ora passiamo id_race e id_stage che abbiamo aggiunto alla view
+                if col_l_btn.button("Vai", key=f"l_{l['id_stage']}", use_container_width=True):
+                    st.session_state.gara_selezionata_id = l['id_race']
+                    st.session_state.tappa_selezionata_id = l['id_stage']
+                    st.switch_page("pages/02_Classifiche.py")
+                st.markdown("<hr>", unsafe_allow_html=True)
         else:
             st.info("In attesa di risultati.")
 
