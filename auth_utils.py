@@ -123,3 +123,4 @@ def render_sidebar():
             st.page_link("pages/04_Upload_Startlist.py", label="Startlist", icon="📑")
             st.page_link("pages/05_Upload_Mass_Results.py", label="Mass Results", icon="🗂️")
             st.page_link("pages/06_insert_pick_massive.py", label="Massive Pick", icon="⚡")
+            st.page_link("pages/08_Gestione_Date.py", label="Gestione Corse", icon="📅")
