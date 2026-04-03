@@ -16,16 +16,23 @@ def check_auth():
         
         * { font-family: 'Inter', sans-serif; }
 
-        /* --- PULIZIA INTERFACCIA STREAMLIT --- */
+        /* PULIZIA INTERFACCIA STREAMLIT (TOP & BOTTOM) */
         header[data-testid="stHeader"] {
             visibility: hidden;
-            height: 0%;
+            display: none;
         }
         #MainMenu {visibility: hidden;}
-        footer {visibility: hidden;}
-        div[data-testid="stStatusWidget"] { visibility: hidden; }
-        .viewerBadge_container__1QSob { display: none !important; }
-        [data-testid="stDecoration"] { display: none; }
+        footer {visibility: hidden; display: none;}
+        
+        /* Nasconde badge, corona, stato script e pulsante deploy in basso */
+        .viewerBadge_container__1QSob, 
+        [data-testid="stStatusWidget"], 
+        .stAppDeployButton,
+        [data-testid="stDecoration"],
+        iframe[title="Managed Hosting"] {
+            display: none !important;
+            visibility: hidden !important;
+        }
 
         /* Sidebar Glassmorphism */
         [data-testid="stSidebar"] {
