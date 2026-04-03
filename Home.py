@@ -30,7 +30,7 @@ key = st.secrets["SUPABASE_KEY"]
 supabase = create_client(url, key)
 
 # --- LOGICA DI SESSIONE E LOGIN ---
-# FIX: Inizializzazione supabase_session per evitare AttributeError
+# FIX: Inizializzazione sicura delle variabili di sessione
 if 'supabase_session' not in st.session_state:
     st.session_state.supabase_session = None
 
@@ -40,16 +40,16 @@ if 'id_user_loggato' not in st.session_state:
 if st.session_state.id_user_loggato is None:
     try:
         res_session = supabase.auth.get_session()
-        if res_session and res_session.user:
+        # Controllo robusto: res_session non deve essere None e deve avere un utente valido
+        if res_session and hasattr(res_session, 'user') and res_session.user:
             u_id = res_session.user.id
             u_info = supabase.table("dim_user").select("nickname, is_admin").eq("id_user", u_id).single().execute()
             st.session_state.id_user_loggato = u_id
             st.session_state.nome_user_loggato = u_info.data['nickname']
             st.session_state.is_admin = u_info.data.get('is_admin', False)
-            # Salvataggio sessione se presente
             st.session_state.supabase_session = res_session
-    except:
-        pass
+    except Exception:
+        st.session_state.supabase_session = None
 
 if st.session_state.id_user_loggato is None:
     st.markdown("<style>[data-testid='stSidebar'], [data-testid='stSidebarCollapsedControl'] { display: none !important; } .stTabs [data-baseweb='tab-list'] { justify-content: center; }</style>", unsafe_allow_html=True)
@@ -74,7 +74,7 @@ if st.session_state.id_user_loggato is None:
                             st.session_state.id_user_loggato = u_id
                             st.session_state.nome_user_loggato = u_info.data['nickname']
                             st.session_state.is_admin = u_info.data.get('is_admin', False)
-                            # FIX: Assicura che la sessione venga salvata al login
+                            # FIX: Salvataggio sessione al login per evitare 'NoneType' nelle pagine secondarie
                             st.session_state.supabase_session = res.session
                             st.rerun()
                         else:
@@ -120,7 +120,6 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 try:
-    # MODIFICA: limit(3) applicato qui
     p_d = supabase.table("view_stage_to_pick").select("*").limit(3).execute().data
     c_d = supabase.table("view_stage_current").select("*").execute().data
     l_d = supabase.table("view_stage_last_results").select("*").execute().data
@@ -174,7 +173,6 @@ try:
                 col_txt_c, col_btn_c = st.columns([0.8, 0.2])
                 col_txt_c.markdown(f"<div style='display: flex; align-items: center; min-height: 45px;'>🚴‍♂️ <b>{nome_live}</b></div>", unsafe_allow_html=True)
                 
-                # --- PUNTA A INSERIMENTO ---
                 if col_btn_c.button("Vai", key=f"c_{c['id_stage']}", use_container_width=True):
                     st.session_state.gara_selezionata_id = c['id_race']
                     st.session_state.tappa_selezionata_id = c['id_stage']
