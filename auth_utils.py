@@ -1,4 +1,5 @@
 import streamlit as st
+import extra_streamlit_components as stx
 
 def check_auth():
     """Controlla l'auth e applica il restyling globale dell'app."""
@@ -103,6 +104,9 @@ def check_auth():
 
 def render_sidebar():
     """Disegna la sidebar con lo stile aggiornato."""
+    # Inizializziamo il cookie manager per gestire il logout
+    cookie_manager = stx.CookieManager()
+
     with st.sidebar:
         st.page_link("Home.py", label="Home", icon="🏠")
         st.page_link("pages/01_Inserimento.py", label="Pick", icon="✍️")
@@ -125,6 +129,8 @@ def render_sidebar():
                 st.switch_page("pages/07_modifica_profilo.py")
         with col2:
             if st.button("Esci 🚪", key="btn_logout", use_container_width=True):
+                # CANCELLAZIONE COOKIE E SESSIONE
+                cookie_manager.delete("supabase_refresh_token")
                 st.session_state.clear()
                 st.rerun()
 
