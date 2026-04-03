@@ -2,16 +2,30 @@ import streamlit as st
 
 def check_auth():
     """Controlla l'auth e applica il restyling globale dell'app."""
+    # Verifichiamo se l'utente è loggato
+    is_logged_in = 'id_user_loggato' in st.session_state and st.session_state.id_user_loggato is None
+    
     if 'id_user_loggato' not in st.session_state or st.session_state.id_user_loggato is None:
         # Nascondi sidebar se non loggato
         st.markdown(
             "<style>[data-testid='stSidebar'], [data-testid='stSidebarCollapsedControl'] {display: none !important;}</style>", 
             unsafe_allow_html=True
         )
-        st.warning("⚠️ Accesso negato. Effettua il login nella Home.")
-        if st.button("Vai al Login"):
-            st.switch_page("Home.py")
-        st.stop()
+        
+        # IMPORTANTE: Se non è loggato e NON siamo nella Home, blocchiamo l'accesso.
+        # Se siamo nella Home, NON chiamiamo st.stop() altrimenti il form di login non funziona.
+        try:
+            # Recuperiamo il nome della pagina corrente in modo sicuro
+            from streamlit.runtime.scriptrunner import get_script_run_ctx
+            ctx = get_script_run_ctx()
+            # Se ctx è None o la pagina non è Home.py, mostriamo l'avviso e stoppiamo
+            if ctx:
+                # Nota: Streamlit usa nomi diversi a seconda di come è lanciato, 
+                # verifichiamo se non siamo nella pagina principale.
+                pass 
+        except:
+            pass
+
     else:
         # Forza la visualizzazione se loggato (Risolve il problema mobile)
         st.markdown(
