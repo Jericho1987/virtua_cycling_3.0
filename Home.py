@@ -30,6 +30,10 @@ key = st.secrets["SUPABASE_KEY"]
 supabase = create_client(url, key)
 
 # --- LOGICA DI SESSIONE E LOGIN ---
+# FIX: Inizializzazione supabase_session per evitare AttributeError
+if 'supabase_session' not in st.session_state:
+    st.session_state.supabase_session = None
+
 if 'id_user_loggato' not in st.session_state:
     st.session_state.id_user_loggato = None
 
@@ -42,6 +46,8 @@ if st.session_state.id_user_loggato is None:
             st.session_state.id_user_loggato = u_id
             st.session_state.nome_user_loggato = u_info.data['nickname']
             st.session_state.is_admin = u_info.data.get('is_admin', False)
+            # Salvataggio sessione se presente
+            st.session_state.supabase_session = res_session
     except:
         pass
 
@@ -68,6 +74,8 @@ if st.session_state.id_user_loggato is None:
                             st.session_state.id_user_loggato = u_id
                             st.session_state.nome_user_loggato = u_info.data['nickname']
                             st.session_state.is_admin = u_info.data.get('is_admin', False)
+                            # FIX: Assicura che la sessione venga salvata al login
+                            st.session_state.supabase_session = res.session
                             st.rerun()
                         else:
                             st.error("Credenziali errate.")
