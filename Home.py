@@ -1,10 +1,15 @@
 import streamlit as st
 from supabase import create_client
-from auth_utils import check_auth, render_sidebar
+from auth_utils import restore_session, check_auth, render_sidebar
 from datetime import datetime
 
-# 1. Configurazione pagina
+# ✅ SEMPRE PER PRIMA
 st.set_page_config(page_title="Virtua Cycling - Home", layout="wide", page_icon="🚴‍♂️")
+
+# ✅ POI AUTH
+restore_session()
+check_auth()
+render_sidebar()
 
 # --- CSS PER MOBILE E HEADER ---
 st.markdown("""
