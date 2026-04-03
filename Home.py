@@ -3,7 +3,7 @@ from supabase import create_client
 from auth_utils import check_auth, render_sidebar
 from datetime import datetime
 
-# 1. Configurazione pagina
+# 1. Configurazione pagina (Sempre come prima istruzione)
 st.set_page_config(page_title="Virtua Cycling - Home", layout="wide", page_icon="🚴‍♂️")
 
 # --- CSS PER MOBILE E HEADER ---
@@ -33,7 +33,7 @@ supabase = create_client(url, key)
 if 'id_user_loggato' not in st.session_state:
     st.session_state.id_user_loggato = None
 
-# Tentativo di recupero sessione automatica (solo se non già loggato in session_state)
+# Tentativo di recupero sessione automatica
 if st.session_state.id_user_loggato is None:
     try:
         res_session = supabase.auth.get_session()
@@ -69,13 +69,12 @@ if st.session_state.id_user_loggato is None:
                         if res.user:
                             u_info = supabase.table("dim_user").select("nickname, is_admin").eq("id_user", res.user.id).single().execute()
                             
-                            # Popoliamo la sessione
+                            # SCRITTURA SESSIONE (Tutto prima del rerun)
                             st.session_state.id_user_loggato = res.user.id
                             st.session_state.nome_user_loggato = u_info.data['nickname']
                             st.session_state.is_admin = u_info.data.get('is_admin', False)
                             st.session_state.supabase_session = res.session
                             
-                            # IL FIX: Forza il ricaricamento immediato della pagina
                             st.rerun()
                         else:
                             st.error("Credenziali errate.")
@@ -96,8 +95,7 @@ if st.session_state.id_user_loggato is None:
     st.stop()
 
 # --- DASHBOARD UTENTE (LOGGATO) ---
-# Se arriviamo qui, l'utente è loggato
-check_auth()
+# FIX: Non chiamiamo check_auth() qui per evitare conflitti di redirect al login
 render_sidebar()
 
 # Forza ripristino sidebar per mobile
@@ -114,7 +112,7 @@ st.markdown(f"""
     <div style="background-color: #1e1e1e; padding: 10px 18px; border-radius: 12px; border-left: 5px solid #ff4b4b; margin-bottom: 25px; display: flex; align-items: center;">
         <img src="{logo}" style="width: 50px; margin-right: 18px;">
         <div style="flex-grow: 1;">
-            <h3 style="margin: 0; font-size: 1.5rem; color: white; line-height: 1.1;">👋 Ciao, {st.session_state.nome_user_loggato}!</h3>
+            <h3 style="margin: 0; font-size: 1.5rem; color: white; line-height: 1.1;">👋 Ciao, {st.session_state.get('nome_user_loggato', 'Rider')}!</h3>
             <p style="margin: 2px 0 0 0; color: #b0b0b0; font-size: 0.85rem;">Bentornato in gruppo.</p>
         </div>
     </div>
