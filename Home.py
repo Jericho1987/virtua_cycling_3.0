@@ -30,27 +30,29 @@ key = st.secrets["SUPABASE_KEY"]
 supabase = create_client(url, key)
 
 # --- LOGICA DI SESSIONE E LOGIN ---
-# FIX: Inizializzazione sicura delle variabili di sessione
 if 'supabase_session' not in st.session_state:
     st.session_state.supabase_session = None
 
 if 'id_user_loggato' not in st.session_state:
     st.session_state.id_user_loggato = None
 
+# Tentativo di recupero sessione automatica
 if st.session_state.id_user_loggato is None:
     try:
         res_session = supabase.auth.get_session()
-        # Controllo robusto: res_session non deve essere None e deve avere un utente valido
-        if res_session and hasattr(res_session, 'user') and res_session.user:
+        if res_session and res_session.user:
             u_id = res_session.user.id
             u_info = supabase.table("dim_user").select("nickname, is_admin").eq("id_user", u_id).single().execute()
+            
             st.session_state.id_user_loggato = u_id
             st.session_state.nome_user_loggato = u_info.data['nickname']
             st.session_state.is_admin = u_info.data.get('is_admin', False)
+            # FIX CRUCIALE: Popoliamo la sessione completa per evitare l'errore access_token
             st.session_state.supabase_session = res_session
-    except Exception:
-        st.session_state.supabase_session = None
+    except:
+        pass
 
+# Schermata di Login se non autenticato
 if st.session_state.id_user_loggato is None:
     st.markdown("<style>[data-testid='stSidebar'], [data-testid='stSidebarCollapsedControl'] { display: none !important; } .stTabs [data-baseweb='tab-list'] { justify-content: center; }</style>", unsafe_allow_html=True)
     _, col_login, _ = st.columns([1, 1.2, 1])
@@ -69,17 +71,16 @@ if st.session_state.id_user_loggato is None:
                     try:
                         res = supabase.auth.sign_in_with_password({"email": e_in, "password": p_in})
                         if res.user:
-                            u_id = res.user.id
-                            u_info = supabase.table("dim_user").select("nickname, is_admin").eq("id_user", u_id).single().execute()
-                            st.session_state.id_user_loggato = u_id
+                            u_info = supabase.table("dim_user").select("nickname, is_admin").eq("id_user", res.user.id).single().execute()
+                            st.session_state.id_user_loggato = res.user.id
                             st.session_state.nome_user_loggato = u_info.data['nickname']
                             st.session_state.is_admin = u_info.data.get('is_admin', False)
-                            # FIX: Salvataggio sessione al login per evitare 'NoneType' nelle pagine secondarie
+                            # Salva la sessione ottenuta dal login
                             st.session_state.supabase_session = res.session
                             st.rerun()
                         else:
                             st.error("Credenziali errate.")
-                    except Exception:
+                    except:
                         st.error("Credenziali errate.")
         
         with t2:
@@ -151,8 +152,7 @@ try:
                                 <div style="background-color: {bg_panel}; color: {color_num}; padding: 3px 6px; border-radius: 4px; border: 1px solid #333;">{m:02d}<span style="font-size: 0.6rem; color: #606060; margin-left: 1px;">m</span></div>
                             </div>
                         '''
-                except:
-                    pass
+                except: pass
 
                 col_txt, col_btn = st.columns([0.8, 0.2])
                 col_txt.markdown(f"<div style='display: flex; align-items: center; min-height: 45px;'><b>{nome_mostrato}</b>{countdown_html}</div>", unsafe_allow_html=True)
@@ -172,7 +172,6 @@ try:
                 nome_live = c['race_name'] if c.get('id_type_race') == 3 else f"{c['race_name']} (Tappa {c['stage']})"
                 col_txt_c, col_btn_c = st.columns([0.8, 0.2])
                 col_txt_c.markdown(f"<div style='display: flex; align-items: center; min-height: 45px;'>🚴‍♂️ <b>{nome_live}</b></div>", unsafe_allow_html=True)
-                
                 if col_btn_c.button("Vai", key=f"c_{c['id_stage']}", use_container_width=True):
                     st.session_state.gara_selezionata_id = c['id_race']
                     st.session_state.tappa_selezionata_id = c['id_stage']
@@ -188,7 +187,6 @@ try:
             for l in l_d:
                 col_l_txt, col_l_btn = st.columns([0.8, 0.2])
                 col_l_txt.markdown(f"<div style='display: flex; align-items: center; min-height: 45px;'>✅ <b>{l['race_name']}</b></div>", unsafe_allow_html=True)
-                
                 if col_l_btn.button("Vai", key=f"l_{l['id_stage']}", use_container_width=True):
                     st.session_state.gara_selezionata_id = l['id_race']
                     st.session_state.tappa_selezionata_id = l['id_stage']
@@ -207,8 +205,7 @@ try:
                     try:
                         dt = datetime.fromisoformat(str(u['stage_date']))
                         data_str = dt.strftime("%d/%m")
-                    except:
-                        data_str = str(u['stage_date'])
+                    except: data_str = str(u['stage_date'])
                 
                 nome_prossima = u['race_name']
                 if u.get('id_type_race') != 3 and u.get('stage'):
