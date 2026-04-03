@@ -5,24 +5,24 @@ from auth_utils import check_auth, render_sidebar # Importi le tue funzioni
 # 1. Configurazione pagina 
 st.set_page_config(page_title="Inserimento Formazione", layout="wide", page_icon="📝") 
 
-# 2. Protezione e Sidebar (Usa le funzioni di auth_utils) 
-check_auth()      # Blocca se non loggato e imposta il CSS 
-render_sidebar()  # Disegna la sidebar coerente 
+# 2. Protezione e Sidebar 
+check_auth()      
+render_sidebar()  
 
-# --- SOLO STILE E FONT ---
+# --- STILE E FONT ---
 st.markdown("""
     <style>
-        /* Rimpicciolisce il font interno alle selectbox per mostrare più testo */
+        /* Font ottimizzato per la lettura su riga intera */
         div[data-baseweb="select"] > div {
-            font-size: 0.8rem !important;
+            font-size: 0.9rem !important;
+            min-height: 42px !important;
         }
-        /* Rimpicciolisce il font della lista a discesa */
         div[data-baseweb="popover"] li {
-            font-size: 0.75rem !important;
+            font-size: 0.85rem !important;
         }
-        /* Rimpicciolisce l'etichetta Slot */
-        div[data-testid="stSelectbox"] label p {
-            font-size: 0.75rem !important;
+        /* Spaziatura tra gli slot verticali */
+        div[data-testid="stSelectbox"] {
+            margin-bottom: 10px !important;
         }
     </style>
 """, unsafe_allow_html=True)
@@ -40,7 +40,6 @@ t_race = st.session_state.get('gara_selezionata_id')
 t_stage = st.session_state.get('tappa_selezionata_id') 
 
 # --- 1. CARICAMENTO DATI FRESCHI DALLA VIEW --- 
-# Forziamo il recupero dei dati per evitare disallineamenti 
 query = supabase.table("view_stage_to_pick").select("*").execute() 
 all_data = query.data 
 
@@ -49,7 +48,6 @@ if not all_data:
     st.stop() 
 
 # --- 2. LOGICA DI SELEZIONE GARA --- 
-# Estraiamo le gare uniche mantenendo l'ordine della view 
 gare_opzioni = [] 
 seen_races = set() 
 for d in all_data: 
@@ -61,11 +59,9 @@ idx_g = next((i for i, g in enumerate(gare_opzioni) if g['id'] == t_race), 0)
 sel_gara = st.selectbox("Seleziona Gara", gare_opzioni, format_func=lambda x: x['name'], index=idx_g, key="sb_gara_main") 
 
 # --- 3. LOGICA DI SELEZIONE TAPPA --- 
-# Filtriamo i dati della view solo per la gara scelta 
 tappe_gara = [t for t in all_data if t['id_race'] == sel_gara['id']] 
 idx_t = next((i for i, t in enumerate(tappe_gara) if t['id_stage'] == t_stage), 0) 
 
-# Questa selectbox deve avere una KEY che cambia se cambia la gara, per resettarsi 
 sel_tappa = st.selectbox( 
     "Seleziona Tappa",  
     tappe_gara,  
@@ -74,8 +70,7 @@ sel_tappa = st.selectbox(
     key=f"sb_tappa_{sel_gara['id']}"  
 ) 
 
-# --- 4. RECUPERO IL LIMITE (LA PARTE CRUCIALE) --- 
-# Leggiamo il limite direttamente dall'oggetto selezionato nella selectbox 
+# --- 4. RECUPERO IL LIMITE --- 
 limit = int(sel_tappa['pick_limit'])  
 
 st.divider() 
@@ -90,23 +85,21 @@ res_riders = supabase.table("view_start_list_display")\
 riders_list = [{"id": None, "nome": "-", "id_team": None}] + \
               [{"id": r['id_rider'], "nome": r['rider_name'], "id_team": r['id_team']} for r in res_riders.data] 
 
-# --- 6. GENERAZIONE SLOT DINAMICI --- 
+# --- 6. GENERAZIONE SLOT DINAMICI (VERTICALE) --- 
 picks = [] 
-# Organizziamo i menu a tendina (massimo 5 in una riga) 
-cols = st.columns(min(limit, 5)) 
 
+# Rimosso st.columns: ora ogni selectbox viene creata una sotto l'altra
 for i in range(limit): 
-    with cols[i % 5]: 
-        # La KEY deve includere l'ID della tappa per forzare il refresh del widget 
-        p = st.selectbox( 
-            f"Slot {i+1}",  
-            options=riders_list,  
-            format_func=lambda x: x['nome'],  
-            key=f"pick_{sel_tappa['id_stage']}_{i}" 
-        ) 
-        picks.append(p) 
+    p = st.selectbox( 
+        f"Slot {i+1}",  
+        options=riders_list,  
+        format_func=lambda x: x['nome'],  
+        key=f"pick_{sel_tappa['id_stage']}_{i}" 
+    ) 
+    picks.append(p) 
 
 # --- 7. BOTTONE SALVATAGGIO --- 
+st.markdown("<br>", unsafe_allow_html=True)
 if st.button("🚀 CONFERMA FORMAZIONE", use_container_width=True, type="primary"): 
     selected_ids = [p['id'] for p in picks if p['id'] is not None] 
     
@@ -116,7 +109,6 @@ if st.button("🚀 CONFERMA FORMAZIONE", use_container_width=True, type="primary
         st.error("Hai inserito dei corridori duplicati!") 
     else: 
         try: 
-            # Rimuoviamo vecchi pick e inseriamo i nuovi 
             supabase.table("fact_user_pick").delete().eq("id_user", user_id).eq("id_stage", sel_tappa['id_stage']).execute() 
             
             to_insert = [{ 
