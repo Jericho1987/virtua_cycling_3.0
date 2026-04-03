@@ -112,7 +112,8 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 try:
-    p_d = supabase.table("view_stage_to_pick").select("*").execute().data
+    # MODIFICA: limit(3) applicato qui
+    p_d = supabase.table("view_stage_to_pick").select("*").limit(3).execute().data
     c_d = supabase.table("view_stage_current").select("*").execute().data
     l_d = supabase.table("view_stage_last_results").select("*").execute().data
     u_d = supabase.table("view_races_upcoming").select("*").execute().data
