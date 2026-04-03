@@ -101,31 +101,36 @@ try:
                     # Gestione Nome (Nascondi tappa se id_type_race è 3)
                     nome_mostrato = p['race_name'] if p.get('id_type_race') == 3 else f"{p['race_name']} (T{p['stage']})"
                     
-                    # Logica Countdown Fighetto con i campi della tua vista
+                    # Logica Countdown "RETRÒ DIGITAL"
                     countdown_html = ""
                     try:
-                        # Uniamo stage_date e stage_time
                         d_val = datetime.fromisoformat(p['stage_date']) if isinstance(p['stage_date'], str) else p['stage_date']
                         t_val = datetime.strptime(p['stage_time'], "%H:%M:%S").time() if isinstance(p['stage_time'], str) else p['stage_time']
                         deadline = datetime.combine(d_val, t_val)
                         
                         diff = deadline - datetime.now()
                         if diff.total_seconds() > 0:
-                            ore_tot = int(diff.total_seconds() // 3600)
-                            minuti = int((diff.total_seconds() // 60) % 60)
+                            giorni = diff.days
+                            ore = diff.seconds // 3600
+                            minuti = (diff.seconds // 60) % 60
                             
-                            if ore_tot > 24:
-                                testo = f"{ore_tot//24}d {ore_tot%24}h"
-                                colore = "#FFA500"
-                            else:
-                                testo = f"{ore_tot}h {minuti}m"
-                                colore = "#FF4B4B"
+                            # Colore basato sull'urgenza
+                            color_num = "#ff4b4b" if giorni == 0 and ore < 12 else "#b0b0b0"
+                            bg_panel = "#0e1117"
                             
-                            countdown_html = f'<span style="background-color: {colore}; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: bold; margin-left: 8px;">⏳ {testo}</span>'
+                            countdown_html = f'''
+                                <div style="display: flex; align-items: center; gap: 4px; font-family: 'Courier New', monospace; font-weight: bold; margin-left: 12px; transform: scale(0.9); transform-origin: left center;">
+                                    <span style="color: #606060; font-size: 0.7rem; margin-right: 2px;">⏳</span>
+                                    {f'<div style="background-color: {bg_panel}; color: {color_num}; padding: 3px 6px; border-radius: 4px; border: 1px solid #333; box-shadow: inset 0 0 5px rgba(0,0,0,0.5);">{giorni:02d}<span style="font-size: 0.6rem; color: #606060; margin-left: 1px;">d</span></div>' if giorni > 0 else ''}
+                                    <div style="background-color: {bg_panel}; color: {color_num}; padding: 3px 6px; border-radius: 4px; border: 1px solid #333; box-shadow: inset 0 0 5px rgba(0,0,0,0.5);">{ore:02d}<span style="font-size: 0.6rem; color: #606060; margin-left: 1px;">h</span></div>
+                                    <span style="color: #333; font-size: 1rem;">:</span>
+                                    <div style="background-color: {bg_panel}; color: {color_num}; padding: 3px 6px; border-radius: 4px; border: 1px solid #333; box-shadow: inset 0 0 5px rgba(0,0,0,0.5);">{minuti:02d}<span style="font-size: 0.6rem; color: #606060; margin-left: 1px;">m</span></div>
+                                </div>
+                            '''
                     except: pass
 
                     col_txt, col_btn = st.columns([0.75, 0.25])
-                    col_txt.markdown(f"<div style='display: flex; align-items: center;'><b>{nome_mostrato}</b>{countdown_html}</div>", unsafe_allow_html=True)
+                    col_txt.markdown(f"<div style='display: flex; align-items: center; min-height: 45px;'><b>{nome_mostrato}</b>{countdown_html}</div>", unsafe_allow_html=True)
                     
                     if col_btn.button("Vai", key=f"p_{p['id_stage']}", use_container_width=True):
                         st.session_state.gara_selezionata_id = p['id_race']
