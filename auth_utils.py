@@ -16,18 +16,23 @@ def check_auth():
         
         * { font-family: 'Inter', sans-serif; }
 
+        /* --- PULIZIA INTERFACCIA STREAMLIT --- */
+        header[data-testid="stHeader"] {
+            visibility: hidden;
+            height: 0%;
+        }
+        #MainMenu {visibility: hidden;}
+        footer {visibility: hidden;}
+        div[data-testid="stStatusWidget"] { visibility: hidden; }
+        .viewerBadge_container__1QSob { display: none !important; }
+        [data-testid="stDecoration"] { display: none; }
+
         /* Sidebar Glassmorphism */
         [data-testid="stSidebar"] {
             background-color: rgba(20, 20, 20, 0.8) !important;
             backdrop-filter: blur(15px);
             border-right: 1px solid rgba(255, 255, 255, 0.05);
         }
-
-        /* Header Trasparente */
-        header[data-testid="stHeader"] {
-            background-color: rgba(0,0,0,0) !important;
-        }
-        [data-testid="stDecoration"] { display: none; }
 
         /* Container delle Card */
         div[data-testid="stVerticalBlock"] > div > div[style*="border"] {
@@ -84,8 +89,6 @@ def check_auth():
             letter-spacing: 1px;
             margin: 20px 0 10px 5px; 
         }
-        
-        footer {visibility: hidden;}
         </style>
     """, unsafe_allow_html=True)
 
@@ -125,5 +128,4 @@ def render_sidebar():
             st.page_link("pages/05_Upload_Mass_Results.py", label="Mass Results", icon="🗂️")
             st.page_link("pages/06_insert_pick_massive.py", label="Massive Pick", icon="⚡")
             st.page_link("pages/08_Gestione_Date.py", label="Gestione Corse", icon="📅")
-            # --- NUOVA PAGINA AGGIUNTA QUI ---
             st.page_link("pages/09_gestione_team.py", label="Gestione Team", icon="🚴‍♂️")
