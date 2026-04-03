@@ -27,7 +27,9 @@ supabase = create_client(url, key)
 # 4. Contenuto della pagina
 st.title("📝 Inserimento Formazione")
 
+# Recuperiamo il display_name dell'utente loggato per l'evidenziazione
 user_id = st.session_state.id_user_loggato
+user_display_name = st.session_state.get('user_name') # Assumo sia salvato in session_state
 t_race = st.session_state.get('gara_selezionata_id')
 t_stage = st.session_state.get('tappa_selezionata_id')
 
@@ -80,31 +82,41 @@ else:
 if sel_tappa['id_stage'] in current_ids:
     st.info(f"🚀 Formazioni schierate per: **{sel_tappa['race_name']}**")
     
-    # Query alla vista: view_user_pick_race con ORDINAMENTO
     res_global = supabase.table("view_user_pick_race")\
         .select("display_name, rider_name_short, id_slot")\
-        .eq("id_stage", sel_tappa['id_stage'])\
-        .order("display_name")\
-        .execute()
+        .eq("id_stage", sel_tappa['id_stage']).execute()
     
     if res_global.data:
         df_raw = pd.DataFrame(res_global.data)
         
         # Pivot: Utenti su righe, Slot su colonne
         df_pivot = df_raw.pivot(index='display_name', columns='id_slot', values='rider_name_short')
-        
-        # Rinominiamo le colonne degli slot (1, 2, 3...)
         df_pivot.columns = [f"Slot {int(col)}" for col in df_pivot.columns]
         
-        # Pulizia finale e reset index per mostrare il nome partecipante
+        # Reset index e rinomina
         df_final = df_pivot.fillna("-").reset_index()
         df_final.rename(columns={'display_name': 'Partecipante'}, inplace=True)
         
-        st.dataframe(df_final, use_container_width=True, hide_index=True)
+        # 1. Ordinamento Case-Insensitive (jericho andrà al posto giusto)
+        df_final = df_final.sort_values(by='Partecipante', key=lambda col: col.str.lower())
+
+        # 2. Funzione per evidenziare la riga dell'utente loggato
+        def highlight_me(row):
+            # Sostituisci 'Partecipante' con il nome colonna corretto se diverso
+            if str(row['Partecipante']).lower() == str(user_display_name).lower():
+                return ['background-color: #1f3d33; color: white; font-weight: bold'] * len(row)
+            return [''] * len(row)
+
+        # Applicazione dello stile
+        st.dataframe(
+            df_final.style.apply(highlight_me, axis=1), 
+            use_container_width=True, 
+            hide_index=True
+        )
     else:
         st.write("Nessuna formazione inviata per questa tappa.")
     
-    st.stop() # Blocca l'esecuzione qui per le gare in corso
+    st.stop()
 
 # --- 5. LOGICA INSERIMENTO (Gara aperta) ---
 res_existing = supabase.table("fact_user_pick")\
