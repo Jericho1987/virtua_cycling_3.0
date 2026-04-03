@@ -1,18 +1,68 @@
 import streamlit as st
 import extra_streamlit_components as stx
+from supabase import create_client
 from datetime import datetime, timedelta
+import time
+
+def get_supabase():
+    """Inizializza il client Supabase usando i secrets."""
+    url = st.secrets["SUPABASE_URL"]
+    key = st.secrets["SUPABASE_KEY"]
+    return create_client(url, key)
+
+def init_session():
+    """
+    Gestisce il recupero della sessione tramite cookie in modo centralizzato.
+    Aggiunge un delay per permettere al componente JS di caricarsi.
+    """
+    if 'id_user_loggato' not in st.session_state:
+        st.session_state.id_user_loggato = None
+
+    # Se non loggato in sessione, proviamo il recupero dal cookie
+    if st.session_state.id_user_loggato is None:
+        # Usiamo una chiave statica per il CookieManager per coerenza tra le pagine
+        cookie_manager = stx.CookieManager(key="virtua_cycling_global_auth")
+        
+        # Pausa tecnica per l'asincronia di Streamlit/JS
+        time.sleep(0.5)
+        
+        saved_token = cookie_manager.get(cookie="supabase_refresh_token")
+        
+        if saved_token:
+            try:
+                supabase = get_supabase()
+                res_session = supabase.auth.refresh_session(saved_token)
+                if res_session and res_session.user:
+                    u_id = res_session.user.id
+                    u_info = supabase.table("dim_user").select("nickname, is_admin").eq("id_user", u_id).single().execute()
+                    
+                    st.session_state.id_user_loggato = u_id
+                    st.session_state.nome_user_loggato = u_info.data['nickname']
+                    st.session_state.is_admin = u_info.data.get('is_admin', False)
+                    
+                    # Aggiorniamo la scadenza del cookie
+                    cookie_manager.set("supabase_refresh_token", res_session.session.refresh_token, 
+                                     expires_at=datetime.now() + timedelta(days=30))
+                    st.rerun()
+            except:
+                # Token non valido o errore: l'utente dovrà loggarsi manualmente
+                pass
 
 def check_auth():
-    """Controlla l'auth e applica il restyling globale dell'app."""
+    """Controlla l'auth, gestisce il recupero cookie e applica il restyling globale."""
+    
+    # 1. Tenta il recupero automatico se necessario
+    init_session()
+    
     if 'id_user_loggato' not in st.session_state or st.session_state.id_user_loggato is None:
-        # Nascondi se non loggato
+        # Nascondi sidebar se non loggato
         st.markdown("<style>[data-testid='stSidebar'], [data-testid='stSidebarCollapsedControl'] {display: none !important;}</style>", unsafe_allow_html=True)
         st.warning("⚠️ Accesso negato. Effettua il login nella Home.")
         if st.button("Vai al Login"):
             st.switch_page("Home.py")
         st.stop()
     else:
-        # Forza la visualizzazione se loggato
+        # Forza la visualizzazione della sidebar se loggato
         st.markdown("<style>[data-testid='stSidebar'], [data-testid='stSidebarCollapsedControl'] {display: flex !important;}</style>", unsafe_allow_html=True)
     
     # --- RESTYLING GRAFICO GLOBALE ---
@@ -22,16 +72,9 @@ def check_auth():
         
         * { font-family: 'Inter', sans-serif; }
 
-        footer, [data-testid="stDecoration"] {
-            display: none !important;
-        }
+        footer, [data-testid="stDecoration"] { display: none !important; }
 
-        .stAppDeployButton, 
-        [data-testid="stStatusWidget"],
-        div[class*="viewerBadge"],
-        button[title="View source on GitHub"] {
-            display: none !important;
-        }
+        .stAppDeployButton, [data-testid="stStatusWidget"], div[class*="viewerBadge"] { display: none !important; }
 
         [data-testid="stSidebar"] {
             background-color: rgba(20, 20, 20, 0.8) !important;
@@ -67,37 +110,24 @@ def check_auth():
         }
 
         .sidebar-user-box { 
-            display: flex; 
-            align-items: center; 
-            gap: 15px; 
-            padding: 15px; 
-            background: rgba(255, 255, 255, 0.03);
-            border-radius: 12px;
-            margin-bottom: 20px;
+            display: flex; align-items: center; gap: 15px; padding: 15px; 
+            background: rgba(255, 255, 255, 0.03); border-radius: 12px; margin-bottom: 20px;
         }
         .sidebar-user-box img {
-            border-radius: 50% !important; 
-            border: 2px solid #ff4b4b !important;
-            width: 50px !important; 
-            height: 50px !important; 
-            object-fit: cover;
-            box-shadow: 0 0 10px rgba(255, 75, 75, 0.3);
+            border-radius: 50% !important; border: 2px solid #ff4b4b !important;
+            width: 50px !important; height: 50px !important; object-fit: cover;
         }
         
         .side-header { 
-            font-size: 0.75rem; 
-            color: #666; 
-            text-transform: uppercase; 
-            letter-spacing: 1px;
-            margin: 20px 0 10px 5px; 
+            font-size: 0.75rem; color: #666; text-transform: uppercase; 
+            letter-spacing: 1px; margin: 20px 0 10px 5px; 
         }
         </style>
     """, unsafe_allow_html=True)
 
 def render_sidebar():
-    """Disegna la sidebar con lo stile aggiornato."""
-    # Inizializziamo il cookie manager con key specifica per la sidebar
-    cookie_manager = stx.CookieManager(key="sidebar_cookie_manager")
+    """Disegna la sidebar con lo stile aggiornato e gestione logout."""
+    cookie_manager = stx.CookieManager(key="virtua_cycling_global_auth")
 
     with st.sidebar:
         st.page_link("Home.py", label="Home", icon="🏠")
@@ -121,7 +151,6 @@ def render_sidebar():
                 st.switch_page("pages/07_modifica_profilo.py")
         with col2:
             if st.button("Esci 🚪", key="btn_logout", use_container_width=True):
-                # CANCELLAZIONE COOKIE E SESSIONE
                 cookie_manager.delete("supabase_refresh_token")
                 st.session_state.clear()
                 st.rerun()
