@@ -23,7 +23,6 @@ key = st.secrets["SUPABASE_KEY"]
 supabase = create_client(url, key)
 
 # --- LOGICA DI SESSIONE SEMPLIFICATA ---
-# Inizializziamo le variabili core se non esistono
 if 'id_user_loggato' not in st.session_state:
     st.session_state.id_user_loggato = None
 if 'nome_user_loggato' not in st.session_state:
@@ -31,7 +30,7 @@ if 'nome_user_loggato' not in st.session_state:
 if 'supabase_session' not in st.session_state:
     st.session_state.supabase_session = None
 
-# Recupero automatico sessione (se l'utente torna sul sito)
+# Recupero sessione esistente all'avvio
 if st.session_state.id_user_loggato is None:
     try:
         session = supabase.auth.get_session()
@@ -44,7 +43,7 @@ if st.session_state.id_user_loggato is None:
     except:
         pass
 
-# --- SCHERMATA LOGIN ---
+# --- LOGICA DI LOGIN ---
 if st.session_state.id_user_loggato is None:
     st.markdown("<style>[data-testid='stSidebar'], [data-testid='stSidebarCollapsedControl'] { display: none !important; }</style>", unsafe_allow_html=True)
     _, col_login, _ = st.columns([1, 1.2, 1])
@@ -95,13 +94,13 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 try:
-    # Caricamento dati viste
+    # Caricamento dati per la dashboard
     p_d = supabase.table("view_stage_to_pick").select("*").limit(3).execute().data
     c_d = supabase.table("view_stage_current").select("*").execute().data
     l_d = supabase.table("view_stage_last_results").select("*").execute().data
     u_d = supabase.table("view_races_upcoming").select("*").execute().data
 
-    # 1. Pick da fare
+    # Sezione Pick
     st.markdown('<div class="section-title">✍️ Pick da fare</div>', unsafe_allow_html=True)
     with st.container(border=True):
         if p_d:
@@ -115,31 +114,5 @@ try:
         else:
             st.success("Tutti i pick completati ✅")
 
-    # 2. In corso
-    st.markdown('<div class="section-title">🏁 In corso</div>', unsafe_allow_html=True)
-    with st.container(border=True):
-        if c_d:
-            for c in c_d:
-                col_t, col_b = st.columns([0.8, 0.2])
-                col_t.write(f"🚴‍♂️ **{c['race_name']}**")
-                if col_b.button("Vai", key=f"c_{c['id_stage']}", use_container_width=True):
-                    st.session_state.gara_selezionata_id = c['id_race']
-                    st.session_state.tappa_selezionata_id = c['id_stage']
-                    st.switch_page("pages/01_Inserimento.py")
-        else:
-            st.info("Nessuna gara live.")
-
-    # 3. Ultimi risultati
-    st.markdown('<div class="section-title">🏆 Ultimi risultati</div>', unsafe_allow_html=True)
-    with st.container(border=True):
-        if l_d:
-            for l in l_d:
-                col_t, col_b = st.columns([0.8, 0.2])
-                col_t.write(f"✅ **{l['race_name']}**")
-                if col_b.button("Dettagli", key=f"l_{l['id_stage']}", use_container_width=True):
-                    st.session_state.gara_selezionata_id = l['id_race']
-                    st.session_state.tappa_selezionata_id = l['id_stage']
-                    st.switch_page("pages/02_Classifiche.py")
-
 except Exception as e:
-    st.error(f"Errore caricamento: {e}")
+    st.error(f"Errore caricamento dati: {e}")
