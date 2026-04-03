@@ -3,11 +3,15 @@ import streamlit as st
 def check_auth():
     """Controlla l'auth e applica il restyling globale dell'app."""
     if 'id_user_loggato' not in st.session_state or st.session_state.id_user_loggato is None:
+        # Nascondi se non loggato
         st.markdown("<style>[data-testid='stSidebar'], [data-testid='stSidebarCollapsedControl'] {display: none !important;}</style>", unsafe_allow_html=True)
         st.warning("⚠️ Accesso negato. Effettua il login nella Home.")
         if st.button("Vai al Login"):
             st.switch_page("Home.py")
         st.stop()
+    else:
+        # NOVITÀ: Forza la visualizzazione se loggato (Risolve il problema mobile)
+        st.markdown("<style>[data-testid='stSidebar'], [data-testid='stSidebarCollapsedControl'] {display: flex !important;}</style>", unsafe_allow_html=True)
     
     # --- RESTYLING GRAFICO GLOBALE ---
     st.markdown("""
@@ -16,15 +20,15 @@ def check_auth():
         
         * { font-family: 'Inter', sans-serif; }
 
-        /* 1. LASCIA L'HEADER STANDARD PER EVITARE PROBLEMI SU MOBILE */
-        /* Rimossa la rimozione dell'header */
+        /* 1. HEADER STANDARD */
+        /* Teniamo l'header pulito ma visibile */
 
         /* 2. NASCONDE FOOTER E DECORAZIONE SUPERIORE */
         footer, [data-testid="stDecoration"] {
             display: none !important;
         }
 
-        /* 3. NASCONDE PULSANTI DI DEPLOY E ALTRE INFO DI STREAMLIT */
+        /* 3. NASCONDE PULSANTI DI DEPLOY E ALTRE INFO */
         .stAppDeployButton, 
         [data-testid="stStatusWidget"],
         div[class*="viewerBadge"],
