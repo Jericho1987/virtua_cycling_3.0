@@ -27,9 +27,9 @@ supabase = create_client(url, key)
 # 4. Contenuto della pagina
 st.title("📝 Inserimento Formazione")
 
-# Recuperiamo il display_name dell'utente loggato per l'evidenziazione
+# Recuperiamo i dati di sessione
 user_id = st.session_state.id_user_loggato
-user_display_name = st.session_state.get('user_name') # Assumo sia salvato in session_state
+user_display_name = st.session_state.get('user_name')
 t_race = st.session_state.get('gara_selezionata_id')
 t_stage = st.session_state.get('tappa_selezionata_id')
 
@@ -66,6 +66,7 @@ sel_gara = st.selectbox("Seleziona Gara", gare_opzioni, format_func=lambda x: x[
 # --- 3. LOGICA DI SELEZIONE TAPPA ---
 tappe_gara = [t for t in all_data if t['id_race'] == sel_gara['id']]
 
+# Se id_type_race è 3, seleziona automaticamente l'unica tappa senza mostrare il selectbox
 if sel_gara['type'] == 3:
     sel_tappa = tappe_gara[0]
 else:
@@ -97,12 +98,11 @@ if sel_tappa['id_stage'] in current_ids:
         df_final = df_pivot.fillna("-").reset_index()
         df_final.rename(columns={'display_name': 'Partecipante'}, inplace=True)
         
-        # 1. Ordinamento Case-Insensitive (jericho andrà al posto giusto)
+        # Ordinamento Case-Insensitive
         df_final = df_final.sort_values(by='Partecipante', key=lambda col: col.str.lower())
 
-        # 2. Funzione per evidenziare la riga dell'utente loggato
+        # Funzione per evidenziare la riga dell'utente loggato
         def highlight_me(row):
-            # Sostituisci 'Partecipante' con il nome colonna corretto se diverso
             if str(row['Partecipante']).lower() == str(user_display_name).lower():
                 return ['background-color: #1f3d33; color: white; font-weight: bold'] * len(row)
             return [''] * len(row)
@@ -132,9 +132,11 @@ res_riders = supabase.table("view_start_list_display")\
     .order("rider_name").execute()
 
 riders_list = [{"id": None, "nome": "-", "id_team": None}] + \
-              [{"id": r['id_rider'], "nome": r['rider_name'], "id_team": r['id_team']} for r in res_riders.data]
+             [{"id": r['id_rider'], "nome": r['rider_name'], "id_team": r['id_team']} for r in res_riders.data]
 
-limit = int(sel_tappa['pick_limit'])
+# Pick limit recuperato dalla view (o impostato a 5 per il tipo 3 se non presente)
+limit = int(sel_tappa['pick_limit']) if sel_tappa.get('pick_limit') else (5 if sel_gara['type'] == 3 else 1)
+
 st.divider()
 st.info(f"Regolamento per questa tappa: **{limit} pick richiesti**")
 
