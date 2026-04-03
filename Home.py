@@ -131,16 +131,16 @@ try:
                     diff = deadline - datetime.now()
                     
                     if diff.total_seconds() > 0:
-                        giorni, ore, minuti = diff.days, diff.seconds // 3600, (diff.seconds // 60) % 60
-                        color_num = "#ff4b4b" if giorni == 0 and ore < 12 else "#b0b0b0"
+                        g, h, m = diff.days, diff.seconds // 3600, (diff.seconds // 60) % 60
+                        color_num = "#ff4b4b" if g == 0 and h < 12 else "#b0b0b0"
                         bg_panel = "#0e1117"
                         countdown_html = f'''
                             <div style="display: flex; align-items: center; gap: 4px; font-family: 'Courier New', monospace; font-weight: bold; margin-left: 12px; transform: scale(0.95); transform-origin: left center;">
                                 <span style="color: #606060; font-size: 0.7rem; margin-right: 2px;">⏳</span>
-                                {'<div style="background-color: '+bg_panel+'; color: '+color_num+'; padding: 3px 6px; border-radius: 4px; border: 1px solid #333;">'+f"{giorni:02d}"+'<span style="font-size: 0.6rem; color: #606060; margin-left: 1px;">d</span></div>' if giorni > 0 else ''}
-                                <div style="background-color: {bg_panel}; color: {color_num}; padding: 3px 6px; border-radius: 4px; border: 1px solid #333;">{ore:02d}<span style="font-size: 0.6rem; color: #606060; margin-left: 1px;">h</span></div>
+                                {'<div style="background-color: '+bg_panel+'; color: '+color_num+'; padding: 3px 6px; border-radius: 4px; border: 1px solid #333;">'+f"{g:02d}"+'<span style="font-size: 0.6rem; color: #606060; margin-left: 1px;">d</span></div>' if g > 0 else ''}
+                                <div style="background-color: {bg_panel}; color: {color_num}; padding: 3px 6px; border-radius: 4px; border: 1px solid #333;">{h:02d}<span style="font-size: 0.6rem; color: #606060; margin-left: 1px;">h</span></div>
                                 <span style="color: #333; font-size: 1rem;">:</span>
-                                <div style="background-color: {bg_panel}; color: {color_num}; padding: 3px 6px; border-radius: 4px; border: 1px solid #333;">{minuti:02d}<span style="font-size: 0.6rem; color: #606060; margin-left: 1px;">m</span></div>
+                                <div style="background-color: {bg_panel}; color: {color_num}; padding: 3px 6px; border-radius: 4px; border: 1px solid #333;">{m:02d}<span style="font-size: 0.6rem; color: #606060; margin-left: 1px;">m</span></div>
                             </div>
                         '''
                 except:
@@ -165,10 +165,11 @@ try:
                 col_txt_c, col_btn_c = st.columns([0.8, 0.2])
                 col_txt_c.markdown(f"<div style='display: flex; align-items: center; min-height: 45px;'>🚴‍♂️ <b>{nome_live}</b></div>", unsafe_allow_html=True)
                 
+                # --- PUNTA A INSERIMENTO ---
                 if col_btn_c.button("Vai", key=f"c_{c['id_stage']}", use_container_width=True):
                     st.session_state.gara_selezionata_id = c['id_race']
                     st.session_state.tappa_selezionata_id = c['id_stage']
-                    st.switch_page("pages/02_Classifiche.py")
+                    st.switch_page("pages/01_Inserimento.py")
                 st.markdown("<hr>", unsafe_allow_html=True)
         else:
             st.info("Nessuna gara live in questo momento.")
