@@ -3,7 +3,6 @@ from supabase import create_client
 from auth_utils import check_auth, render_sidebar
 from datetime import datetime, date, time, timedelta
 import extra_streamlit_components as stx
-import time as time_lib
 
 # 1. Configurazione pagina
 st.set_page_config(page_title="Virtua Cycling - Home", layout="wide", page_icon="🚴‍♂️")
@@ -51,9 +50,9 @@ if st.session_state.id_user_loggato is None:
                 st.session_state.nome_user_loggato = u_info.data['nickname']
                 st.session_state.is_admin = u_info.data.get('is_admin', False)
                 
-                # Aggiorna il cookie (30 giorni)
+                # Aggiorna il cookie usando un oggetto datetime (CORRETTO)
                 cookie_manager.set("supabase_refresh_token", res_session.session.refresh_token, 
-                                 expires_at=time_lib.time() + (30 * 24 * 3600))
+                                 expires_at=datetime.now() + timedelta(days=30))
                 st.rerun()
         except:
             pass
@@ -75,9 +74,9 @@ if st.session_state.id_user_loggato is None:
                     try:
                         res = supabase.auth.sign_in_with_password({"email": e_in, "password": p_in})
                         if res.user:
-                            # Salvataggio Cookie
+                            # Salvataggio Cookie con datetime (CORRETTO)
                             cookie_manager.set("supabase_refresh_token", res.session.refresh_token, 
-                                             expires_at=time_lib.time() + (30 * 24 * 3600))
+                                             expires_at=datetime.now() + timedelta(days=30))
                             
                             u_id = res.user.id
                             u_info = supabase.table("dim_user").select("nickname, is_admin").eq("id_user", u_id).single().execute()
@@ -86,7 +85,6 @@ if st.session_state.id_user_loggato is None:
                             st.session_state.is_admin = u_info.data.get('is_admin', False)
                             st.rerun()
                     except Exception as e:
-                        # Mostra l'errore reale di Supabase per il debug
                         st.error(f"Errore: {e}")
         with t2:
             with st.form("reg_form"):
@@ -96,7 +94,7 @@ if st.session_state.id_user_loggato is None:
                 if st.form_submit_button("REGISTRATI ✨", use_container_width=True):
                     try:
                         supabase.auth.sign_up({"email": n_e, "password": n_p, "options": {"data": {"nickname": n_n}}})
-                        st.success("Registrazione effettuata! Controlla l'email se necessario o prova ad accedere.")
+                        st.success("Registrazione effettuata! Controlla l'email se necessario.")
                     except Exception as e: 
                         st.error(f"Errore: {e}")
     st.stop()
@@ -105,7 +103,7 @@ if st.session_state.id_user_loggato is None:
 check_auth()
 render_sidebar()
 
-# Forza visibilità sidebar (utile per mobile)
+# Forza visibilità sidebar
 st.markdown("""<style>[data-testid="stSidebar"], [data-testid="stSidebarCollapsedControl"] { display: flex !important; }</style>""", unsafe_allow_html=True)
 
 logo = "https://github.com/Jericho1987/virtua_cycling_3.0/blob/main/logo_pwa.png?raw=true"
