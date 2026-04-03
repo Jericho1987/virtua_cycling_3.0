@@ -39,36 +39,45 @@ try:
         st.info("Nessuna tappa trovata.")
         st.stop()
 
-    # Merge e Mappatura
+    # Merge per avere i nomi delle gare
     df_display = df_stages.merge(df_races, on="id_race")
+    
+    # Mappa dei tipi tappa
     type_map = dict(zip(df_types['id_stage_type'], df_types['description']))
     df_display['Tipo Tappa'] = df_display['id_stage_type'].map(type_map)
 
-    # Conversione formati per Streamlit
-    df_display['stage_date'] = pd.to_datetime(df_display['stage_date']).dt.date
-    df_display['stage_time'] = pd.to_datetime(df_display['stage_time'], format='%H:%M:%S').dt.time
+    # Conversione formati per manipolazione e visualizzazione
+    df_display['stage_date_dt'] = pd.to_datetime(df_display['stage_date'])
+    # Creiamo una colonna datetime completa per l'ordinamento preciso
+    df_display['full_start'] = pd.to_datetime(df_display['stage_date'] + ' ' + df_display['stage_time'])
 
-    # --- 5. FILTRI ---
-    races_list = sorted(df_races['name'].unique())
-    sel_race = st.selectbox("Filtra per Gara", ["Tutte"] + races_list)
+    # --- 5. LOGICA FILTRO ORDINATO PER DATA ---
+    # 1. Troviamo la data minima (partenza) per ogni gara
+    race_order = df_display.groupby('name')['full_start'].min().sort_values().index.tolist()
+    
+    # 2. Creiamo il selectbox con l'ordine cronologico trovato
+    sel_race = st.selectbox("Filtra per Gara (Ordine Cronologico)", ["Tutte"] + race_order)
     
     if sel_race != "Tutte":
         df_display = df_display[df_display['name'] == sel_race]
 
-    # Prepariamo il DF per la griglia
-    df_grid = df_display[[
+    # Prepariamo i dati per la visualizzazione (Date e Time objects per l'editor)
+    df_grid = df_display.copy()
+    df_grid['stage_date'] = df_grid['stage_date_dt'].dt.date
+    df_grid['stage_time'] = pd.to_datetime(df_grid['stage_time'], format='%H:%M:%S').dt.time
+    
+    df_grid = df_grid[[
         'id_stage', 'name', 'id_stage_number', 'stage_date', 'stage_time', 'Tipo Tappa'
-    ]].copy().reset_index(drop=True)
+    ]].reset_index(drop=True)
 
-    # --- 6. INTESTAZIONE E BOTTONE SALVA (Allineati) ---
-    st.write("") # Spazio estetico
+    # --- 6. INTESTAZIONE E BOTTONE SALVA ---
+    st.write("") 
     col_titolo, col_bottone = st.columns([0.7, 0.3], vertical_alignment="bottom")
     
     with col_titolo:
         st.write("### Griglia Modificabile")
     
     with col_bottone:
-        # Il bottone ora è in alto a destra rispetto alla griglia
         save_clicked = st.button("💾 Salva Modifiche", type="primary", use_container_width=True)
 
     # --- 7. GRIGLIA EDITABILE ---
