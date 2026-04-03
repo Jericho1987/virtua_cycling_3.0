@@ -30,13 +30,10 @@ key = st.secrets["SUPABASE_KEY"]
 supabase = create_client(url, key)
 
 # --- LOGICA DI SESSIONE E LOGIN ---
-if 'supabase_session' not in st.session_state:
-    st.session_state.supabase_session = None
-
 if 'id_user_loggato' not in st.session_state:
     st.session_state.id_user_loggato = None
 
-# Tentativo di recupero sessione automatica
+# Tentativo di recupero sessione automatica (solo se non già loggato in session_state)
 if st.session_state.id_user_loggato is None:
     try:
         res_session = supabase.auth.get_session()
@@ -47,7 +44,6 @@ if st.session_state.id_user_loggato is None:
             st.session_state.id_user_loggato = u_id
             st.session_state.nome_user_loggato = u_info.data['nickname']
             st.session_state.is_admin = u_info.data.get('is_admin', False)
-            # FIX CRUCIALE: Popoliamo la sessione completa per evitare l'errore access_token
             st.session_state.supabase_session = res_session
     except:
         pass
@@ -72,11 +68,14 @@ if st.session_state.id_user_loggato is None:
                         res = supabase.auth.sign_in_with_password({"email": e_in, "password": p_in})
                         if res.user:
                             u_info = supabase.table("dim_user").select("nickname, is_admin").eq("id_user", res.user.id).single().execute()
+                            
+                            # Popoliamo la sessione
                             st.session_state.id_user_loggato = res.user.id
                             st.session_state.nome_user_loggato = u_info.data['nickname']
                             st.session_state.is_admin = u_info.data.get('is_admin', False)
-                            # Salva la sessione ottenuta dal login
                             st.session_state.supabase_session = res.session
+                            
+                            # IL FIX: Forza il ricaricamento immediato della pagina
                             st.rerun()
                         else:
                             st.error("Credenziali errate.")
@@ -97,6 +96,7 @@ if st.session_state.id_user_loggato is None:
     st.stop()
 
 # --- DASHBOARD UTENTE (LOGGATO) ---
+# Se arriviamo qui, l'utente è loggato
 check_auth()
 render_sidebar()
 
