@@ -1,10 +1,15 @@
 import streamlit as st
 from supabase import create_client
-from auth_utils import check_auth, render_sidebar
+from auth_utils import restore_session, check_auth, render_sidebar
 import pandas as pd
 
 # 1. Configurazione pagina
 st.set_page_config(page_title="Inserimento Formazione", layout="wide", page_icon="📝")
+
+# ✅ POI AUTH
+restore_session()
+check_auth()
+render_sidebar()
 
 # 2. Protezione e Sidebar
 check_auth()
