@@ -93,7 +93,7 @@ if sel_tappa['id_stage'] in current_ids:
         
         # Pivot: Utenti su righe, Slot su colonne
         df_pivot = df_raw.pivot(index='display_name', columns='id_slot', values='rider_name_short')
-        df_pivot.columns = [f"Slot {int(col)}" for col in df_pivot.columns]
+        df_pivot.columns = [f"Pos. {int(col)}" for col in df_pivot.columns]
         
         # Reset index e rinomina
         df_final = df_pivot.fillna("-").reset_index()
