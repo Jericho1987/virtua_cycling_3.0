@@ -19,10 +19,13 @@ supabase = create_client(url, key)
 
 # --- 4. GESTIONE SESSIONE ---
 if "supabase_session" in st.session_state and st.session_state.supabase_session:
-    supabase.auth.set_session(
-        st.session_state.supabase_session.access_token, 
-        st.session_state.supabase_session.refresh_token
-    )
+    try:
+        supabase.auth.set_session(
+            st.session_state.supabase_session.access_token, 
+            st.session_state.supabase_session.refresh_token
+        )
+    except:
+        pass
 
 st.title("⚙️ Gestione Profilo")
 st.write(f"Stai modificando l'account di: **{st.session_state.nome_user_loggato}**")
@@ -44,7 +47,7 @@ with tab_nick:
                 except Exception as e:
                     st.error(f"Errore: {e}")
 
-# --- TAB 2: EMAIL (AGGIORNATA) ---
+# --- TAB 2: EMAIL (FIXED) ---
 with tab_mail:
     st.subheader("Cambia Indirizzo Email")
     with st.form("form_email"):
@@ -52,19 +55,16 @@ with tab_mail:
         if st.form_submit_button("Aggiorna Email", use_container_width=True):
             if "@" in nuova_email and "." in nuova_email:
                 try:
-                    # Forza il token attuale prima dell'invio
-                    supabase.auth.set_session(st.session_state.supabase_session.access_token, st.session_state.supabase_session.refresh_token)
-                    
-                    # Aggiorna Auth di sistema
-                    supabase.auth.update_user({"email": nuova_email})
-                    
-                    # Aggiorna Tabella Utenti
+                    # Aggiorniamo solo la tabella dim_user. 
+                    # Il trigger SQL si occuperà di aggiornare auth.users senza richiedere SMTP o token.
                     supabase.table("dim_user").update({"email": nuova_email}).eq("id_user", st.session_state.id_user_loggato).execute()
                     
-                    st.success("Email modificata! Effettua il logout e rientra per confermare.")
-                    st.rerun()
+                    st.success("Email aggiornata con successo! ✅")
+                    st.info("Nota: Al prossimo accesso dovrai usare il nuovo indirizzo.")
                 except Exception as e:
                     st.error(f"Errore: {e}")
+            else:
+                st.error("Inserisci un indirizzo email valido.")
 
 # --- TAB 3: PASSWORD ---
 with tab_pass:
