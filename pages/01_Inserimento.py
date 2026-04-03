@@ -64,9 +64,10 @@ sel_gara = st.selectbox("Seleziona Gara", gare_opzioni, format_func=lambda x: x[
 tappe_gara = [t for t in all_data if t['id_race'] == sel_gara['id']]
 
 if sel_gara['type'] == 3:
+    # Gara in linea: prendiamo la tappa unica silenziosamente
     sel_tappa = tappe_gara[0]
-    st.info(f"🏆 **Gara in linea:** {sel_gara['name']}")
 else:
+    # Gara a tappe: mostriamo la selezione
     idx_t = next((i for i, t in enumerate(tappe_gara) if t['id_stage'] == t_stage), 0)
     sel_tappa = st.selectbox(
         "Seleziona Tappa",
