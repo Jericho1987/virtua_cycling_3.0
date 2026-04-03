@@ -153,7 +153,7 @@ for i in range(limit):
                 break
     
     p = st.selectbox(
-        f"Slot {slot_number}",
+        f"Pos. {slot_number}",
         options=riders_list,
         format_func=lambda x: x['nome'],
         index=default_idx,
