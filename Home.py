@@ -1,16 +1,11 @@
 import streamlit as st
 from supabase import create_client
-from auth_utils import check_auth, render_sidebar
-from datetime import datetime, date, time as dt_time, timedelta
+from auth_utils import check_auth, render_sidebar, init_session
+from datetime import datetime, timedelta
 import extra_streamlit_components as stx
-import time
 
-# 1. Configurazione pagina
+# 1. Configurazione pagina (Deve essere la prima istruzione Streamlit)
 st.set_page_config(page_title="Virtua Cycling - Home", layout="wide", page_icon="🚴‍♂️")
-
-# --- INIZIALIZZAZIONE COOKIE MANAGER ---
-# Usiamo una chiave statica per evitare duplicazioni di componenti
-cookie_manager = stx.CookieManager(key="home_cookie_manager")
 
 # --- CSS PER MOBILE E HEADER ---
 st.markdown("""
@@ -30,49 +25,21 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Configurazione Supabase
+# Inizializzazione Client Supabase
 url = st.secrets["SUPABASE_URL"]
 key = st.secrets["SUPABASE_KEY"]
 supabase = create_client(url, key)
 
-# --- LOGICA DI SESSIONE E RECUPERO AUTOMATICO (FIX F5) ---
-if 'id_user_loggato' not in st.session_state:
-    st.session_state.id_user_loggato = None
+# --- LOGICA DI AUTENTICAZIONE CENTRALIZZATA ---
+# init_session prova a recuperare il cookie se non siamo loggati in session_state
+init_session()
 
-# Se non loggato in sessione, attendiamo il CookieManager e proviamo il recupero
-if st.session_state.id_user_loggato is None:
-    # Piccolo delay per permettere al componente JS dei cookie di inizializzarsi
-    time.sleep(0.5) 
-    saved_token = cookie_manager.get(cookie="supabase_refresh_token")
+# --- FORM DI LOGIN / REGISTRAZIONE (Se non loggato) ---
+if st.session_state.get('id_user_loggato') is None:
+    # Usiamo il cookie manager per il salvataggio manuale al primo login
+    cookie_manager = stx.CookieManager(key="virtua_cycling_global_auth")
     
-    if saved_token:
-        try:
-            res_session = supabase.auth.refresh_session(saved_token)
-            if res_session and res_session.user:
-                u_id = res_session.user.id
-                u_info = supabase.table("dim_user").select("nickname, is_admin").eq("id_user", u_id).single().execute()
-                
-                st.session_state.id_user_loggato = u_id
-                st.session_state.nome_user_loggato = u_info.data['nickname']
-                st.session_state.is_admin = u_info.data.get('is_admin', False)
-                
-                # Aggiorna il cookie per estendere la validità
-                cookie_manager.set("supabase_refresh_token", res_session.session.refresh_token, 
-                                 expires_at=datetime.now() + timedelta(days=30))
-                st.rerun()
-        except:
-            # Se il token è invalido o scaduto, procediamo al form di login
-            pass
-
-# --- FORM DI LOGIN / REGISTRAZIONE ---
-if st.session_state.id_user_loggato is None:
-    # Nascondiamo la sidebar e i controlli se l'utente deve ancora loggarsi
-    st.markdown("""
-        <style>
-            [data-testid='stSidebar'], [data-testid='stSidebarCollapsedControl'] { display: none !important; } 
-            .stTabs [data-baseweb='tab-list'] { justify-content: center; }
-        </style>
-    """, unsafe_allow_html=True)
+    st.markdown("<style>[data-testid='stSidebar'], [data-testid='stSidebarCollapsedControl'] { display: none !important; } .stTabs [data-baseweb='tab-list'] { justify-content: center; }</style>", unsafe_allow_html=True)
     
     _, col_login, _ = st.columns([1, 1.2, 1])
     with col_login:
@@ -83,9 +50,7 @@ if st.session_state.id_user_loggato is None:
             with st.form("login_form"):
                 e_in = st.text_input("Email").strip()
                 p_in = st.text_input("Password", type="password")
-                submit = st.form_submit_button("ACCEDI 🚀", use_container_width=True)
-                
-                if submit:
+                if st.form_submit_button("ACCEDI 🚀", use_container_width=True):
                     try:
                         res = supabase.auth.sign_in_with_password({"email": e_in, "password": p_in})
                         if res.user:
@@ -93,14 +58,13 @@ if st.session_state.id_user_loggato is None:
                             cookie_manager.set("supabase_refresh_token", res.session.refresh_token, 
                                              expires_at=datetime.now() + timedelta(days=30))
                             
-                            u_id = res.user.id
-                            u_info = supabase.table("dim_user").select("nickname, is_admin").eq("id_user", u_id).single().execute()
-                            st.session_state.id_user_loggato = u_id
+                            u_info = supabase.table("dim_user").select("nickname, is_admin").eq("id_user", res.user.id).single().execute()
+                            st.session_state.id_user_loggato = res.user.id
                             st.session_state.nome_user_loggato = u_info.data['nickname']
                             st.session_state.is_admin = u_info.data.get('is_admin', False)
                             st.rerun()
-                    except Exception as e:
-                        st.error("Credenziali errate o errore di connessione.")
+                    except:
+                        st.error("Credenziali errate.")
         
         with t2:
             with st.form("reg_form"):
@@ -110,18 +74,16 @@ if st.session_state.id_user_loggato is None:
                 if st.form_submit_button("REGISTRATI ✨", use_container_width=True):
                     try:
                         supabase.auth.sign_up({"email": n_e, "password": n_p, "options": {"data": {"nickname": n_n}}})
-                        st.success("Registrazione effettuata! Controlla l'email se richiesto.")
+                        st.success("Registrazione effettuata! Controlla l'email.")
                     except Exception as e: 
                         st.error(f"Errore: {e}")
     st.stop()
 
-# --- DASHBOARD UTENTE (SE LOGGATO) ---
+# --- DASHBOARD UTENTE (Accessibile solo se loggato) ---
 check_auth()
 render_sidebar()
 
-# Forza visibilità sidebar dopo il login
-st.markdown("""<style>[data-testid="stSidebar"], [data-testid="stSidebarCollapsedControl"] { display: flex !important; }</style>""", unsafe_allow_html=True)
-
+# Header Benvenuto
 logo = "https://github.com/Jericho1987/virtua_cycling_3.0/blob/main/logo_pwa.png?raw=true"
 st.markdown(f"""
     <div style="background-color: #1e1e1e; padding: 10px 18px; border-radius: 12px; border-left: 5px solid #ff4b4b; margin-bottom: 25px; display: flex; align-items: center;">
