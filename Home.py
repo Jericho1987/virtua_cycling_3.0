@@ -1,19 +1,10 @@
 import streamlit as st
 from supabase import create_client
-from auth_utils import restore_session, check_auth, render_sidebar
-import extra_streamlit_components as stx
+from auth_utils import check_auth, render_sidebar
 from datetime import datetime
 
-# ✅ SEMPRE PER PRIMA
+# 1. Configurazione pagina
 st.set_page_config(page_title="Virtua Cycling - Home", layout="wide", page_icon="🚴‍♂️")
-
-# ✅ SOLO restore (NO check_auth qui!)
-restore_session()
-
-# =========================
-# COOKIE MANAGER
-# =========================
-cookie_manager = stx.CookieManager()
 
 # --- CSS PER MOBILE E HEADER ---
 st.markdown("""
@@ -42,7 +33,6 @@ supabase = create_client(url, key)
 if 'id_user_loggato' not in st.session_state:
     st.session_state.id_user_loggato = None
 
-# 🔁 (opzionale ma safe) prova a recuperare sessione già settata
 if st.session_state.id_user_loggato is None:
     try:
         res_session = supabase.auth.get_session()
@@ -55,9 +45,6 @@ if st.session_state.id_user_loggato is None:
     except:
         pass
 
-# =========================
-# 🔐 LOGIN
-# =========================
 if st.session_state.id_user_loggato is None:
     st.markdown("<style>[data-testid='stSidebar'], [data-testid='stSidebarCollapsedControl'] { display: none !important; } .stTabs [data-baseweb='tab-list'] { justify-content: center; }</style>", unsafe_allow_html=True)
     _, col_login, _ = st.columns([1, 1.2, 1])
@@ -76,18 +63,11 @@ if st.session_state.id_user_loggato is None:
                     try:
                         res = supabase.auth.sign_in_with_password({"email": e_in, "password": p_in})
                         if res.user:
-                            
-                            # ✅ SALVA COOKIE
-                            cookie_manager.set("sb_access_token", res.session.access_token)
-                            cookie_manager.set("sb_refresh_token", res.session.refresh_token)
-
                             u_id = res.user.id
                             u_info = supabase.table("dim_user").select("nickname, is_admin").eq("id_user", u_id).single().execute()
-                            
                             st.session_state.id_user_loggato = u_id
                             st.session_state.nome_user_loggato = u_info.data['nickname']
                             st.session_state.is_admin = u_info.data.get('is_admin', False)
-
                             st.rerun()
                         else:
                             st.error("Credenziali errate.")
@@ -107,9 +87,7 @@ if st.session_state.id_user_loggato is None:
                         st.error(f"Errore: {e}")
     st.stop()
 
-# =========================
-# ✅ UTENTE LOGGATO
-# =========================
+# --- DASHBOARD UTENTE (LOGGATO) ---
 check_auth()
 render_sidebar()
 
