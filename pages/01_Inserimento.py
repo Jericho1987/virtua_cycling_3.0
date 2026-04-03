@@ -12,7 +12,6 @@ render_sidebar()
 # --- STILE E FONT ---
 st.markdown("""
     <style>
-        /* Font ottimizzato per la lettura su riga intera */
         div[data-baseweb="select"] > div {
             font-size: 0.9rem !important;
             min-height: 42px !important;
@@ -20,7 +19,6 @@ st.markdown("""
         div[data-baseweb="popover"] li {
             font-size: 0.85rem !important;
         }
-        /* Spaziatura tra gli slot verticali */
         div[data-testid="stSelectbox"] {
             margin-bottom: 10px !important;
         }
@@ -52,29 +50,38 @@ gare_opzioni = []
 seen_races = set() 
 for d in all_data: 
     if d['id_race'] not in seen_races: 
-        gare_opzioni.append({'id': d['id_race'], 'name': d['race_name']}) 
+        gare_opzioni.append({
+            'id': d['id_race'], 
+            'name': d['race_name'], 
+            'type': d.get('id_race_type') # Recuperiamo il tipo gara
+        }) 
         seen_races.add(d['id_race']) 
 
 idx_g = next((i for i, g in enumerate(gare_opzioni) if g['id'] == t_race), 0) 
 sel_gara = st.selectbox("Seleziona Gara", gare_opzioni, format_func=lambda x: x['name'], index=idx_g, key="sb_gara_main") 
 
-# --- 3. LOGICA DI SELEZIONE TAPPA --- 
-tappe_gara = [t for t in all_data if t['id_race'] == sel_gara['id']] 
-idx_t = next((i for i, t in enumerate(tappe_gara) if t['id_stage'] == t_stage), 0) 
+# --- 3. LOGICA DI SELEZIONE TAPPA (CON NASCONDIMENTO) --- 
+tappe_gara = [t for t in all_data if t['id_race'] == sel_gara['id']]
 
-sel_tappa = st.selectbox( 
-    "Seleziona Tappa",  
-    tappe_gara,  
-    format_func=lambda x: f"Tappa {x['stage']}",  
-    index=idx_t if idx_t < len(tappe_gara) else 0, 
-    key=f"sb_tappa_{sel_gara['id']}"  
-) 
+# Se id_race_type == 3 (One Day Race), prendiamo la prima (e unica) tappa e non mostriamo la selectbox
+if sel_gara['type'] == 3:
+    sel_tappa = tappe_gara[0]
+    st.write(f"🏆 **Gara in linea:** {sel_gara['name']}")
+else:
+    idx_t = next((i for i, t in enumerate(tappe_gara) if t['id_stage'] == t_stage), 0) 
+    sel_tappa = st.selectbox( 
+        "Seleziona Tappa",  
+        tappe_gara,  
+        format_func=lambda x: f"Tappa {x['stage']}",  
+        index=idx_t if idx_t < len(tappe_gara) else 0, 
+        key=f"sb_tappa_{sel_gara['id']}"  
+    ) 
 
 # --- 4. RECUPERO IL LIMITE --- 
 limit = int(sel_tappa['pick_limit'])  
 
 st.divider() 
-st.info(f"Regolamento per questa tappa: **{limit} pick richiesti**") 
+st.info(f"Regolamento: **{limit} pick richiesti**") 
 
 # --- 5. CARICAMENTO CORRIDORI --- 
 res_riders = supabase.table("view_start_list_display")\
@@ -87,8 +94,6 @@ riders_list = [{"id": None, "nome": "-", "id_team": None}] + \
 
 # --- 6. GENERAZIONE SLOT DINAMICI (VERTICALE) --- 
 picks = [] 
-
-# Rimosso st.columns: ora ogni selectbox viene creata una sotto l'altra
 for i in range(limit): 
     p = st.selectbox( 
         f"Slot {i+1}",  
