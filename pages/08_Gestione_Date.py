@@ -60,10 +60,18 @@ try:
         'id_stage', 'name', 'id_stage_number', 'stage_date', 'stage_time', 'Tipo Tappa'
     ]].copy().reset_index(drop=True)
 
-    # --- 6. GRIGLIA EDITABILE ---
-    st.write("### Griglia Modificabile")
+    # --- 6. INTESTAZIONE E BOTTONE SALVA (Allineati) ---
+    st.write("") # Spazio estetico
+    col_titolo, col_bottone = st.columns([0.7, 0.3], vertical_alignment="bottom")
     
-    # Usiamo un key specifica per accedere ai cambiamenti tramite session_state
+    with col_titolo:
+        st.write("### Griglia Modificabile")
+    
+    with col_bottone:
+        # Il bottone ora è in alto a destra rispetto alla griglia
+        save_clicked = st.button("💾 Salva Modifiche", type="primary", use_container_width=True)
+
+    # --- 7. GRIGLIA EDITABILE ---
     edited_df = st.data_editor(
         df_grid,
         column_config={
@@ -83,12 +91,8 @@ try:
         key="stage_editor"
     )
 
-    # --- 7. LOGICA DI SALVATAGGIO OTTIMIZZATA ---
-    st.divider()
-    
-    if st.button("💾 Salva solo modifiche", type="primary"):
-        # Recuperiamo solo i dizionari delle righe toccate
-        # Formato: { "indice_riga": { "colonna_modificata": "nuovo_valore" } }
+    # --- 8. LOGICA DI SALVATAGGIO ---
+    if save_clicked:
         changes = st.session_state["stage_editor"].get("edited_rows", {})
 
         if not changes:
@@ -97,36 +101,29 @@ try:
             inv_type_map = {v: k for k, v in type_map.items()}
             success_count = 0
             
-            with st.spinner(f"Salvataggio di {len(changes)} tappe..."):
+            with st.spinner("Salvataggio in corso..."):
                 for row_idx_str, updated_values in changes.items():
                     row_idx = int(row_idx_str)
-                    # Recuperiamo l'ID del record usando l'indice della riga originale
                     id_stage = df_grid.iloc[row_idx]['id_stage']
                     
-                    # Costruiamo il payload solo con quello che è cambiato
                     update_payload = {}
                     if 'stage_date' in updated_values:
                         update_payload["stage_date"] = updated_values['stage_date']
                     if 'stage_time' in updated_values:
-                        # Assicuriamoci che sia stringa HH:MM:SS
                         val_time = updated_values['stage_time']
                         update_payload["stage_time"] = val_time.strftime('%H:%M:%S') if hasattr(val_time, 'strftime') else val_time
                     if 'Tipo Tappa' in updated_values:
                         update_payload["id_stage_type"] = inv_type_map[updated_values['Tipo Tappa']]
 
-                    # Eseguiamo l'update solo se ci sono dati nel payload
                     if update_payload:
-                        try:
-                            supabase.table("dim_race_stage")\
-                                .update(update_payload)\
-                                .eq("id_stage", id_stage)\
-                                .execute()
-                            success_count += 1
-                        except Exception as e:
-                            st.error(f"Errore durante l'aggiornamento della riga {row_idx}: {e}")
+                        supabase.table("dim_race_stage")\
+                            .update(update_payload)\
+                            .eq("id_stage", id_stage)\
+                            .execute()
+                        success_count += 1
 
             if success_count > 0:
-                st.success(f"✅ Aggiornate con successo {success_count} tappe!")
+                st.success(f"✅ {success_count} tappe aggiornate!")
                 st.cache_data.clear()
                 st.rerun()
 
