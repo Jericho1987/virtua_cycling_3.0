@@ -195,7 +195,7 @@ try:
                 # Logica Condizionale Nome Gara (Tappa solo se id_type_race != 3)
                 nome_prossima = u['race_name']
                 if u.get('id_type_race') != 3 and u.get('stage'):
-                    nome_prossima = f"{u['race_name']} (Tappa{u['stage']})"
+                    nome_prossima = f"{u['race_name']} Tappa {u['stage']}"
                 
                 label_data = f"<span style='color: #ff4b4b; font-weight: bold; margin-right: 10px;'>{data_str}</span>" if data_str else ""
                 st.markdown(f"<div style='margin-bottom: 8px;'>{label_data} {nome_prossima}</div>", unsafe_allow_html=True)
