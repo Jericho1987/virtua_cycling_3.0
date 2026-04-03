@@ -1,187 +1,216 @@
 import streamlit as st
 from supabase import create_client
-from auth_utils import  check_auth, render_sidebar
-import pandas as pd
+from auth_utils import check_auth, render_sidebar
+from datetime import datetime
 
 # 1. Configurazione pagina
-st.set_page_config(page_title="Inserimento Formazione", layout="wide", page_icon="📝")
+st.set_page_config(page_title="Virtua Cycling - Home", layout="wide", page_icon="🚴‍♂️")
 
-
-# 2. Protezione e Sidebar
-check_auth()
-render_sidebar()
-
-# --- STILE E FONT ---
+# --- CSS PER MOBILE E HEADER ---
 st.markdown("""
     <style>
-        div[data-baseweb="select"] > div { font-size: 0.9rem !important; min-height: 42px !important; }
-        div[data-baseweb="popover"] li { font-size: 0.85rem !important; }
-        div[data-testid="stSelectbox"] { margin-bottom: 10px !important; }
+        .block-container { padding-top: 1rem !important; padding-bottom: 0rem !important; }
+        header[data-testid="stHeader"] { background-color: rgba(0,0,0,0) !important; color: white !important; }
+        [data-testid="stDecoration"] { display: none; }
+        hr { margin: 15px 0 !important; opacity: 0.15; }
+        .section-title { 
+            font-size: 1.4rem; 
+            font-weight: bold; 
+            margin-bottom: 10px; 
+            display: flex; 
+            align-items: center; 
+            gap: 10px;
+        }
     </style>
 """, unsafe_allow_html=True)
 
-# 3. Connessione dati
+# --- INIZIALIZZAZIONE SUPABASE ---
 url = st.secrets["SUPABASE_URL"]
 key = st.secrets["SUPABASE_KEY"]
 supabase = create_client(url, key)
 
-# 4. Contenuto della pagina
-st.title("📝 Inserimento Formazione")
+# --- LOGICA DI SESSIONE E LOGIN ---
+if 'id_user_loggato' not in st.session_state:
+    st.session_state.id_user_loggato = None
 
-# Recuperiamo i dati di sessione
-user_id = st.session_state.id_user_loggato
-user_display_name = st.session_state.get('user_name')
-t_race = st.session_state.get('gara_selezionata_id')
-t_stage = st.session_state.get('tappa_selezionata_id')
+if st.session_state.id_user_loggato is None:
+    try:
+        res_session = supabase.auth.get_session()
+        if res_session and res_session.user:
+            u_id = res_session.user.id
+            u_info = supabase.table("dim_user").select("nickname, is_admin").eq("id_user", u_id).single().execute()
+            st.session_state.id_user_loggato = u_id
+            st.session_state.nome_user_loggato = u_info.data['nickname']
+            st.session_state.is_admin = u_info.data.get('is_admin', False)
+    except:
+        pass
 
-# --- 1. CARICAMENTO DATI PALINSESTO (UNIONE VIEW) ---
-res_to_pick = supabase.table("view_stage_to_pick").select("*").execute()
-data_to_pick = res_to_pick.data if res_to_pick.data else []
-
-res_current = supabase.table("view_stage_current").select("*").execute()
-data_current = res_current.data if res_current.data else []
-
-all_data = data_to_pick + data_current
-current_ids = [d['id_stage'] for d in data_current]
-
-if not all_data:
-    st.warning("Non ci sono gare disponibili al momento.")
+if st.session_state.id_user_loggato is None:
+    st.markdown("<style>[data-testid='stSidebar'], [data-testid='stSidebarCollapsedControl'] { display: none !important; } .stTabs [data-baseweb='tab-list'] { justify-content: center; }</style>", unsafe_allow_html=True)
+    _, col_login, _ = st.columns([1, 1.2, 1])
+    
+    with col_login:
+        st.title("Virtua Cycling")
+        t1, t2 = st.tabs(["🔐 Accedi", "✨ Registrati"])
+        
+        with t1:
+            with st.form("login_form"):
+                e_in = st.text_input("Email")
+                p_in = st.text_input("Password", type="password")
+                submit = st.form_submit_button("ACCEDI 🚀", use_container_width=True)
+                
+                if submit:
+                    try:
+                        res = supabase.auth.sign_in_with_password({"email": e_in, "password": p_in})
+                        if res.user:
+                            u_id = res.user.id
+                            u_info = supabase.table("dim_user").select("nickname, is_admin").eq("id_user", u_id).single().execute()
+                            st.session_state.id_user_loggato = u_id
+                            st.session_state.nome_user_loggato = u_info.data['nickname']
+                            st.session_state.is_admin = u_info.data.get('is_admin', False)
+                            st.rerun()
+                        else:
+                            st.error("Credenziali errate.")
+                    except Exception:
+                        st.error("Credenziali errate.")
+        
+        with t2:
+            with st.form("reg_form"):
+                n_e = st.text_input("Email")
+                n_p = st.text_input("Password", type="password")
+                n_n = st.text_input("Nickname")
+                if st.form_submit_button("REGISTRATI ✨", use_container_width=True):
+                    try:
+                        supabase.auth.sign_up({"email": n_e, "password": n_p, "options": {"data": {"nickname": n_n}}})
+                        st.success("Ok! Ora accedi.")
+                    except Exception as e: 
+                        st.error(f"Errore: {e}")
     st.stop()
 
-# --- 2. LOGICA DI SELEZIONE GARA ---
-gare_opzioni = []
-seen_races = set()
-for d in all_data:
-    if d['id_race'] not in seen_races:
-        suffix = " 🟢 (In corso)" if d['id_stage'] in current_ids else ""
-        gare_opzioni.append({
-            'id': d['id_race'],
-            'name': f"{d['race_name']}{suffix}",
-            'type': d.get('id_type_race')
-        })
-        seen_races.add(d['id_race'])
+# --- DASHBOARD UTENTE (LOGGATO) ---
+check_auth()
+render_sidebar()
 
-idx_g = next((i for i, g in enumerate(gare_opzioni) if g['id'] == t_race), 0)
-sel_gara = st.selectbox("Seleziona Gara", gare_opzioni, format_func=lambda x: x['name'], index=idx_g, key="sb_gara_main")
+# Forza ripristino sidebar per mobile
+st.markdown("""
+    <style>
+        [data-testid="stSidebar"], [data-testid="stSidebarCollapsedControl"] { 
+            display: flex !important; 
+        }
+    </style>
+""", unsafe_allow_html=True)
 
-# --- 3. LOGICA DI SELEZIONE TAPPA ---
-tappe_gara = [t for t in all_data if t['id_race'] == sel_gara['id']]
+logo = "https://github.com/Jericho1987/virtua_cycling_3.0/blob/main/logo_pwa.png?raw=true"
+st.markdown(f"""
+    <div style="background-color: #1e1e1e; padding: 10px 18px; border-radius: 12px; border-left: 5px solid #ff4b4b; margin-bottom: 25px; display: flex; align-items: center;">
+        <img src="{logo}" style="width: 50px; margin-right: 18px;">
+        <div style="flex-grow: 1;">
+            <h3 style="margin: 0; font-size: 1.5rem; color: white; line-height: 1.1;">👋 Ciao, {st.session_state.nome_user_loggato}!</h3>
+            <p style="margin: 2px 0 0 0; color: #b0b0b0; font-size: 0.85rem;">Bentornato in gruppo.</p>
+        </div>
+    </div>
+""", unsafe_allow_html=True)
 
-# Se id_type_race è 3, seleziona automaticamente l'unica tappa senza mostrare il selectbox
-if sel_gara['type'] == 3:
-    sel_tappa = tappe_gara[0]
-else:
-    idx_t = next((i for i, t in enumerate(tappe_gara) if t['id_stage'] == t_stage), 0)
-    sel_tappa = st.selectbox(
-        "Seleziona Tappa",
-        tappe_gara,
-        format_func=lambda x: f"Tappa {x['stage']}" + (" (LIVE)" if x['id_stage'] in current_ids else ""),
-        index=idx_t if idx_t < len(tappe_gara) else 0,
-        key=f"sb_tappa_{sel_gara['id']}"
-    )
+try:
+    p_d = supabase.table("view_stage_to_pick").select("*").execute().data
+    c_d = supabase.table("view_stage_current").select("*").execute().data
+    l_d = supabase.table("view_stage_last_results").select("*").execute().data
+    u_d = supabase.table("view_races_upcoming").select("*").execute().data
 
-# --- 4. CONTROLLO SE LA TAPPA È IN CORSO (MODALITÀ VISUALIZZAZIONE) ---
-if sel_tappa['id_stage'] in current_ids:
-    st.info(f"🚀 Formazioni schierate per: **{sel_tappa['race_name']}**")
-    
-    res_global = supabase.table("view_user_pick_race")\
-        .select("display_name, rider_name_short, id_slot")\
-        .eq("id_stage", sel_tappa['id_stage']).execute()
-    
-    if res_global.data:
-        df_raw = pd.DataFrame(res_global.data)
-        
-        # Pivot: Utenti su righe, Slot su colonne
-        df_pivot = df_raw.pivot(index='display_name', columns='id_slot', values='rider_name_short')
-        df_pivot.columns = [f"Slot {int(col)}" for col in df_pivot.columns]
-        
-        # Reset index e rinomina
-        df_final = df_pivot.fillna("-").reset_index()
-        df_final.rename(columns={'display_name': 'Partecipante'}, inplace=True)
-        
-        # Ordinamento Case-Insensitive
-        df_final = df_final.sort_values(by='Partecipante', key=lambda col: col.str.lower())
+    # --- 1. SEZIONE PICK DA FARE ---
+    st.markdown('<div class="section-title">✍️ Pick da fare</div>', unsafe_allow_html=True)
+    with st.container(border=True):
+        if p_d:
+            for p in p_d:
+                nome_mostrato = p['race_name'] if p.get('id_type_race') == 3 else f"{p['race_name']} (T{p['stage']})"
+                countdown_html = ""
+                try:
+                    d_val = datetime.fromisoformat(p['stage_date']) if isinstance(p['stage_date'], str) else p['stage_date']
+                    t_val = datetime.strptime(p['stage_time'], "%H:%M:%S").time() if isinstance(p['stage_time'], str) else p['stage_time']
+                    deadline = datetime.combine(d_val, t_val)
+                    diff = deadline - datetime.now()
+                    
+                    if diff.total_seconds() > 0:
+                        g, h, m = diff.days, diff.seconds // 3600, (diff.seconds // 60) % 60
+                        color_num = "#ff4b4b" if g == 0 and h < 12 else "#b0b0b0"
+                        bg_panel = "#0e1117"
+                        countdown_html = f'''
+                            <div style="display: flex; align-items: center; gap: 4px; font-family: 'Courier New', monospace; font-weight: bold; margin-left: 12px; transform: scale(0.95); transform-origin: left center;">
+                                <span style="color: #606060; font-size: 0.7rem; margin-right: 2px;">⏳</span>
+                                {'<div style="background-color: '+bg_panel+'; color: '+color_num+'; padding: 3px 6px; border-radius: 4px; border: 1px solid #333;">'+f"{g:02d}"+'<span style="font-size: 0.6rem; color: #606060; margin-left: 1px;">d</span></div>' if g > 0 else ''}
+                                <div style="background-color: {bg_panel}; color: {color_num}; padding: 3px 6px; border-radius: 4px; border: 1px solid #333;">{h:02d}<span style="font-size: 0.6rem; color: #606060; margin-left: 1px;">h</span></div>
+                                <span style="color: #333; font-size: 1rem;">:</span>
+                                <div style="background-color: {bg_panel}; color: {color_num}; padding: 3px 6px; border-radius: 4px; border: 1px solid #333;">{m:02d}<span style="font-size: 0.6rem; color: #606060; margin-left: 1px;">m</span></div>
+                            </div>
+                        '''
+                except:
+                    pass
 
-        # Funzione per evidenziare la riga dell'utente loggato
-        def highlight_me(row):
-            if str(row['Partecipante']).lower() == str(user_display_name).lower():
-                return ['background-color: #1f3d33; color: white; font-weight: bold'] * len(row)
-            return [''] * len(row)
+                col_txt, col_btn = st.columns([0.8, 0.2])
+                col_txt.markdown(f"<div style='display: flex; align-items: center; min-height: 45px;'><b>{nome_mostrato}</b>{countdown_html}</div>", unsafe_allow_html=True)
+                if col_btn.button("Vai", key=f"p_{p['id_stage']}", use_container_width=True):
+                    st.session_state.gara_selezionata_id = p['id_race']
+                    st.session_state.tappa_selezionata_id = p['id_stage']
+                    st.switch_page("pages/01_Inserimento.py")
+                st.markdown("<hr>", unsafe_allow_html=True)
+        else:
+            st.success("Tutti i pick sono completi ✅")
 
-        # Applicazione dello stile
-        st.dataframe(
-            df_final.style.apply(highlight_me, axis=1), 
-            use_container_width=True, 
-            hide_index=True
-        )
-    else:
-        st.write("Nessuna formazione inviata per questa tappa.")
-    
-    st.stop()
+    # --- 2. SEZIONE IN CORSO ---
+    st.markdown('<div class="section-title">🏁 In corso</div>', unsafe_allow_html=True)
+    with st.container(border=True):
+        if c_d:
+            for c in c_d:
+                nome_live = c['race_name'] if c.get('id_type_race') == 3 else f"{c['race_name']} (Tappa {c['stage']})"
+                col_txt_c, col_btn_c = st.columns([0.8, 0.2])
+                col_txt_c.markdown(f"<div style='display: flex; align-items: center; min-height: 45px;'>🚴‍♂️ <b>{nome_live}</b></div>", unsafe_allow_html=True)
+                
+                # MODIFICATO: Ora punta a Inserimento.py invece di Classifiche.py
+                if col_btn_c.button("Vai", key=f"c_{c['id_stage']}", use_container_width=True):
+                    st.session_state.gara_selezionata_id = c['id_race']
+                    st.session_state.tappa_selezionata_id = c['id_stage']
+                    st.switch_page("pages/01_Inserimento.py")
+                st.markdown("<hr>", unsafe_allow_html=True)
+        else:
+            st.info("Nessuna gara live in questo momento.")
 
-# --- 5. LOGICA INSERIMENTO (Gara aperta) ---
-res_existing = supabase.table("fact_user_pick")\
-    .select("id_slot, id_rider")\
-    .eq("id_user", user_id)\
-    .eq("id_stage", sel_tappa['id_stage']).execute()
+    # --- 3. SEZIONE ULTIMI RISULTATI ---
+    st.markdown('<div class="section-title">🏆 Ultimi risultati</div>', unsafe_allow_html=True)
+    with st.container(border=True):
+        if l_d:
+            for l in l_d:
+                col_l_txt, col_l_btn = st.columns([0.8, 0.2])
+                col_l_txt.markdown(f"<div style='display: flex; align-items: center; min-height: 45px;'>✅ <b>{l['race_name']}</b></div>", unsafe_allow_html=True)
+                
+                if col_l_btn.button("Vai", key=f"l_{l['id_stage']}", use_container_width=True):
+                    st.session_state.gara_selezionata_id = l['id_race']
+                    st.session_state.tappa_selezionata_id = l['id_stage']
+                    st.switch_page("pages/02_Classifiche.py")
+                st.markdown("<hr>", unsafe_allow_html=True)
+        else:
+            st.info("In attesa di risultati.")
 
-existing_picks = {p['id_slot']: p['id_rider'] for p in res_existing.data}
+    # --- 4. SEZIONE PROSSIME GARE ---
+    st.markdown('<div class="section-title">📅 Prossime gare</div>', unsafe_allow_html=True)
+    with st.container(border=True):
+        if u_d:
+            for u in u_d:
+                data_str = ""
+                if u.get('stage_date'):
+                    try:
+                        dt = datetime.fromisoformat(str(u['stage_date']))
+                        data_str = dt.strftime("%d/%m")
+                    except:
+                        data_str = str(u['stage_date'])
+                
+                nome_prossima = u['race_name']
+                if u.get('id_type_race') != 3 and u.get('stage'):
+                    nome_prossima = f"{u['race_name']} (Tappa {u['stage']})"
+                
+                label_data = f"<span style='color: #ff4b4b; font-weight: bold; margin-right: 10px;'>{data_str}</span>" if data_str else ""
+                st.markdown(f"<div style='margin-bottom: 8px;'>{label_data} {nome_prossima}</div>", unsafe_allow_html=True)
+        else:
+            st.write("Nessuna gara in programma a breve.")
 
-res_riders = supabase.table("view_start_list_display")\
-    .select("id_rider, rider_name, id_team")\
-    .eq("id_race", sel_gara['id'])\
-    .order("rider_name").execute()
-
-riders_list = [{"id": None, "nome": "-", "id_team": None}] + \
-             [{"id": r['id_rider'], "nome": r['rider_name'], "id_team": r['id_team']} for r in res_riders.data]
-
-# Pick limit recuperato dalla view (o impostato a 5 per il tipo 3 se non presente)
-limit = int(sel_tappa['pick_limit']) if sel_tappa.get('pick_limit') else (5 if sel_gara['type'] == 3 else 1)
-
-st.divider()
-st.info(f"Regolamento per questa tappa: **{limit} pick richiesti**")
-
-picks = []
-for i in range(limit):
-    slot_number = i + 1
-    saved_rider_id = existing_picks.get(slot_number)
-    default_idx = 0
-    if saved_rider_id:
-        for idx, rider in enumerate(riders_list):
-            if rider['id'] == saved_rider_id:
-                default_idx = idx
-                break
-    
-    p = st.selectbox(
-        f"Slot {slot_number}",
-        options=riders_list,
-        format_func=lambda x: x['nome'],
-        index=default_idx,
-        key=f"pick_{sel_tappa['id_stage']}_{i}"
-    )
-    picks.append(p)
-
-# --- 7. BOTTONE SALVATAGGIO ---
-st.markdown("<br>", unsafe_allow_html=True)
-if st.button("🚀 CONFERMA FORMAZIONE", use_container_width=True, type="primary"):
-    selected_ids = [p['id'] for p in picks if p['id'] is not None]
-    if len(selected_ids) < limit:
-        st.error(f"Devi completare tutti i {limit} slot.")
-    elif len(set(selected_ids)) < len(selected_ids):
-        st.error("Hai inserito dei corridori duplicati!")
-    else:
-        try:
-            supabase.table("fact_user_pick").delete().eq("id_user", user_id).eq("id_stage", sel_tappa['id_stage']).execute()
-            to_insert = [{
-                "id_user": user_id,
-                "id_race": sel_gara['id'],
-                "id_stage": sel_tappa['id_stage'],
-                "id_rider": p['id'],
-                "id_team": p['id_team'],
-                "id_slot": i + 1
-            } for i, p in enumerate(picks)]
-            supabase.table("fact_user_pick").insert(to_insert).execute()
-            st.success("Salvataggio completato!")
-            st.balloons()
-        except Exception as e:
-            st.error(f"Errore: {e}")
+except Exception as e:
+    st.error(f"Errore nel caricamento dati: {e}")
