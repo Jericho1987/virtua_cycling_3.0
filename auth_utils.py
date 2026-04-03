@@ -1,53 +1,9 @@
 import streamlit as st
-import extra_streamlit_components as stx
-from supabase import create_client
 
-# =========================
-# 🔑 RESTORE SESSION
-# =========================
-def restore_session():
-    # Se già loggato, non fare nulla
-    if st.session_state.get('id_user_loggato'):
-        return
-
-    cookie_manager = stx.CookieManager()
-
-    url = st.secrets["SUPABASE_URL"]
-    key = st.secrets["SUPABASE_KEY"]
-    supabase = create_client(url, key)
-
-    access_token = cookie_manager.get("sb_access_token")
-    refresh_token = cookie_manager.get("sb_refresh_token")
-
-    if access_token and refresh_token:
-        try:
-            supabase.auth.set_session(access_token, refresh_token)
-            res_session = supabase.auth.get_session()
-
-            if res_session and res_session.user:
-                u_id = res_session.user.id
-
-                u_info = supabase.table("dim_user") \
-                    .select("nickname, is_admin") \
-                    .eq("id_user", u_id) \
-                    .single() \
-                    .execute()
-
-                st.session_state.id_user_loggato = u_id
-                st.session_state.nome_user_loggato = u_info.data['nickname']
-                st.session_state.is_admin = u_info.data.get('is_admin', False)
-
-        except Exception:
-            pass
-
-
-# =========================
-# 🔐 CHECK AUTH
-# =========================
 def check_auth():
     """Controlla l'auth e applica il restyling globale dell'app."""
-
     if 'id_user_loggato' not in st.session_state or st.session_state.id_user_loggato is None:
+        # Nascondi sidebar se non loggato
         st.markdown(
             "<style>[data-testid='stSidebar'], [data-testid='stSidebarCollapsedControl'] {display: none !important;}</style>", 
             unsafe_allow_html=True
@@ -57,6 +13,7 @@ def check_auth():
             st.switch_page("Home.py")
         st.stop()
     else:
+        # Forza la visualizzazione se loggato (Risolve il problema mobile)
         st.markdown(
             "<style>[data-testid='stSidebar'], [data-testid='stSidebarCollapsedControl'] {display: flex !important;}</style>", 
             unsafe_allow_html=True
@@ -69,10 +26,12 @@ def check_auth():
         
         * { font-family: 'Inter', sans-serif; }
 
+        /* 1. NASCONDE FOOTER E DECORAZIONE SUPERIORE */
         footer, [data-testid="stDecoration"] {
             display: none !important;
         }
 
+        /* 2. NASCONDE PULSANTI DI DEPLOY E ALTRE INFO */
         .stAppDeployButton, 
         [data-testid="stStatusWidget"],
         div[class*="viewerBadge"],
@@ -80,12 +39,14 @@ def check_auth():
             display: none !important;
         }
 
+        /* Sidebar Glassmorphism */
         [data-testid="stSidebar"] {
             background-color: rgba(20, 20, 20, 0.8) !important;
             backdrop-filter: blur(15px);
             border-right: 1px solid rgba(255, 255, 255, 0.05);
         }
 
+        /* Container delle Card */
         div[data-testid="stVerticalBlock"] > div > div[style*="border"] {
             background: rgba(30, 30, 30, 0.6) !important;
             border: 1px solid rgba(255, 255, 255, 0.1) !important;
@@ -100,6 +61,7 @@ def check_auth():
             box-shadow: 0 10px 20px rgba(0,0,0,0.3);
         }
 
+        /* Bottoni Custom */
         .stButton > button {
             border-radius: 10px !important;
             border: none !important;
@@ -108,12 +70,12 @@ def check_auth():
             font-weight: 600 !important;
             transition: all 0.2s ease !important;
         }
-
         .stButton > button:hover {
             transform: scale(1.03);
             box-shadow: 0 4px 15px rgba(255, 75, 75, 0.4);
         }
 
+        /* User Box Sidebar */
         .sidebar-user-box { 
             display: flex; 
             align-items: center; 
@@ -123,7 +85,6 @@ def check_auth():
             border-radius: 12px;
             margin-bottom: 20px;
         }
-
         .sidebar-user-box img {
             border-radius: 50% !important; 
             border: 2px solid #ff4b4b !important;
@@ -144,12 +105,8 @@ def check_auth():
     """, unsafe_allow_html=True)
 
 
-# =========================
-# 📂 SIDEBAR
-# =========================
 def render_sidebar():
-    cookie_manager = stx.CookieManager()
-
+    """Disegna la sidebar con lo stile aggiornato."""
     with st.sidebar:
         st.page_link("Home.py", label="Home", icon="🏠")
         st.page_link("pages/01_Inserimento.py", label="Pick", icon="✍️")
@@ -157,6 +114,7 @@ def render_sidebar():
         
         st.markdown('<p class="side-header">Account</p>', unsafe_allow_html=True)
         
+        # Recupero nome utente in modo sicuro
         user_display_name = st.session_state.get('nome_user_loggato', 'Rider')
         
         st.markdown(f"""
@@ -170,18 +128,15 @@ def render_sidebar():
         """, unsafe_allow_html=True)
         
         col1, col2 = st.columns([1, 1])
-
         with col1:
             if st.button("Profilo ⚙️", key="btn_settings", use_container_width=True):
                 st.switch_page("pages/07_modifica_profilo.py")
-
         with col2:
             if st.button("Esci 🚪", key="btn_logout", use_container_width=True):
-                cookie_manager.delete("sb_access_token")
-                cookie_manager.delete("sb_refresh_token")
                 st.session_state.clear()
                 st.rerun()
 
+        # Sezione Admin
         if st.session_state.get('is_admin', False):
             st.markdown('<p class="side-header" style="color: #ff4b4b;">Admin Panel</p>', unsafe_allow_html=True)
             st.page_link("pages/03_Gestione_Risultati.py", label="Risultati", icon="📊")
