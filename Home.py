@@ -12,7 +12,15 @@ st.markdown("""
         .block-container { padding-top: 1rem !important; padding-bottom: 0rem !important; }
         header[data-testid="stHeader"] { background-color: rgba(0,0,0,0) !important; color: white !important; }
         [data-testid="stDecoration"] { display: none; }
-        hr { margin: 10px 0 !important; opacity: 0.15; }
+        hr { margin: 15px 0 !important; opacity: 0.15; }
+        .section-title { 
+            font-size: 1.4rem; 
+            font-weight: bold; 
+            margin-bottom: 10px; 
+            display: flex; 
+            align-items: center; 
+            gap: 10px;
+        }
     </style>
 """, unsafe_allow_html=True)
 
@@ -76,7 +84,7 @@ render_sidebar()
 
 logo = "https://github.com/Jericho1987/virtua_cycling_3.0/blob/main/logo_pwa.png?raw=true"
 st.markdown(f"""
-    <div style="background-color: #1e1e1e; padding: 10px 18px; border-radius: 12px; border-left: 5px solid #ff4b4b; margin-bottom: 15px; display: flex; align-items: center;">
+    <div style="background-color: #1e1e1e; padding: 10px 18px; border-radius: 12px; border-left: 5px solid #ff4b4b; margin-bottom: 25px; display: flex; align-items: center;">
         <img src="{logo}" style="width: 50px; margin-right: 18px;">
         <div style="flex-grow: 1;">
             <h3 style="margin: 0; font-size: 1.5rem; color: white; line-height: 1.1;">👋 Ciao, {st.session_state.nome_user_loggato}!</h3>
@@ -91,79 +99,74 @@ try:
     l_d = supabase.table("view_stage_last_results").select("*").execute().data
     u_d = supabase.table("view_races_upcoming").select("*").execute().data
 
-    c_tl, c_tr = st.columns(2, gap="medium")
-    
-    with c_tl:
-        st.subheader("✍️ Pick da fare")
-        with st.container(border=True):
-            if p_d:
-                for p in p_d:
-                    # Gestione Nome (Nascondi tappa se id_type_race è 3)
-                    nome_mostrato = p['race_name'] if p.get('id_type_race') == 3 else f"{p['race_name']} (T{p['stage']})"
+    # --- 1. SEZIONE PICK DA FARE (FULL WIDTH) ---
+    st.markdown('<div class="section-title">✍️ Pick da fare</div>', unsafe_allow_html=True)
+    with st.container(border=True):
+        if p_d:
+            for p in p_d:
+                nome_mostrato = p['race_name'] if p.get('id_type_race') == 3 else f"{p['race_name']} (T{p['stage']})"
+                
+                countdown_html = ""
+                try:
+                    d_val = datetime.fromisoformat(p['stage_date']) if isinstance(p['stage_date'], str) else p['stage_date']
+                    t_val = datetime.strptime(p['stage_time'], "%H:%M:%S").time() if isinstance(p['stage_time'], str) else p['stage_time']
+                    deadline = datetime.combine(d_val, t_val)
                     
-                    # Logica Countdown "RETRÒ DIGITAL"
-                    countdown_html = ""
-                    try:
-                        d_val = datetime.fromisoformat(p['stage_date']) if isinstance(p['stage_date'], str) else p['stage_date']
-                        t_val = datetime.strptime(p['stage_time'], "%H:%M:%S").time() if isinstance(p['stage_time'], str) else p['stage_time']
-                        deadline = datetime.combine(d_val, t_val)
+                    diff = deadline - datetime.now()
+                    if diff.total_seconds() > 0:
+                        giorni, ore, minuti = diff.days, diff.seconds // 3600, (diff.seconds // 60) % 60
+                        color_num = "#ff4b4b" if giorni == 0 and ore < 12 else "#b0b0b0"
+                        bg_panel = "#0e1117"
                         
-                        diff = deadline - datetime.now()
-                        if diff.total_seconds() > 0:
-                            giorni = diff.days
-                            ore = diff.seconds // 3600
-                            minuti = (diff.seconds // 60) % 60
-                            
-                            # Colore basato sull'urgenza
-                            color_num = "#ff4b4b" if giorni == 0 and ore < 12 else "#b0b0b0"
-                            bg_panel = "#0e1117"
-                            
-                            countdown_html = f'''
-                                <div style="display: flex; align-items: center; gap: 4px; font-family: 'Courier New', monospace; font-weight: bold; margin-left: 12px; transform: scale(0.9); transform-origin: left center;">
-                                    <span style="color: #606060; font-size: 0.7rem; margin-right: 2px;">⏳</span>
-                                    {f'<div style="background-color: {bg_panel}; color: {color_num}; padding: 3px 6px; border-radius: 4px; border: 1px solid #333; box-shadow: inset 0 0 5px rgba(0,0,0,0.5);">{giorni:02d}<span style="font-size: 0.6rem; color: #606060; margin-left: 1px;">d</span></div>' if giorni > 0 else ''}
-                                    <div style="background-color: {bg_panel}; color: {color_num}; padding: 3px 6px; border-radius: 4px; border: 1px solid #333; box-shadow: inset 0 0 5px rgba(0,0,0,0.5);">{ore:02d}<span style="font-size: 0.6rem; color: #606060; margin-left: 1px;">h</span></div>
-                                    <span style="color: #333; font-size: 1rem;">:</span>
-                                    <div style="background-color: {bg_panel}; color: {color_num}; padding: 3px 6px; border-radius: 4px; border: 1px solid #333; box-shadow: inset 0 0 5px rgba(0,0,0,0.5);">{minuti:02d}<span style="font-size: 0.6rem; color: #606060; margin-left: 1px;">m</span></div>
-                                </div>
-                            '''
-                    except: pass
+                        countdown_html = f'''
+                            <div style="display: flex; align-items: center; gap: 4px; font-family: 'Courier New', monospace; font-weight: bold; margin-left: 12px; transform: scale(0.95); transform-origin: left center;">
+                                <span style="color: #606060; font-size: 0.7rem; margin-right: 2px;">⏳</span>
+                                {f'<div style="background-color: {bg_panel}; color: {color_num}; padding: 3px 6px; border-radius: 4px; border: 1px solid #333; box-shadow: inset 0 0 5px rgba(0,0,0,0.5);">{giorni:02d}<span style="font-size: 0.6rem; color: #606060; margin-left: 1px;">d</span></div>' if giorni > 0 else ''}
+                                <div style="background-color: {bg_panel}; color: {color_num}; padding: 3px 6px; border-radius: 4px; border: 1px solid #333; box-shadow: inset 0 0 5px rgba(0,0,0,0.5);">{ore:02d}<span style="font-size: 0.6rem; color: #606060; margin-left: 1px;">h</span></div>
+                                <span style="color: #333; font-size: 1rem;">:</span>
+                                <div style="background-color: {bg_panel}; color: {color_num}; padding: 3px 6px; border-radius: 4px; border: 1px solid #333; box-shadow: inset 0 0 5px rgba(0,0,0,0.5);">{minuti:02d}<span style="font-size: 0.6rem; color: #606060; margin-left: 1px;">m</span></div>
+                            </div>
+                        '''
+                except: pass
 
-                    col_txt, col_btn = st.columns([0.75, 0.25])
-                    col_txt.markdown(f"<div style='display: flex; align-items: center; min-height: 45px;'><b>{nome_mostrato}</b>{countdown_html}</div>", unsafe_allow_html=True)
-                    
-                    if col_btn.button("Vai", key=f"p_{p['id_stage']}", use_container_width=True):
-                        st.session_state.gara_selezionata_id = p['id_race']
-                        st.session_state.tappa_selezionata_id = p['id_stage']
-                        st.switch_page("pages/01_Inserimento.py")
-                    st.markdown("<hr>", unsafe_allow_html=True)
-            else:
-                st.success("Tutti i pick sono completi ✅")
+                col_txt, col_btn = st.columns([0.8, 0.2])
+                col_txt.markdown(f"<div style='display: flex; align-items: center; min-height: 45px;'><b>{nome_mostrato}</b>{countdown_html}</div>", unsafe_allow_html=True)
+                if col_btn.button("Vai", key=f"p_{p['id_stage']}", use_container_width=True):
+                    st.session_state.gara_selezionata_id = p['id_race']
+                    st.session_state.tappa_selezionata_id = p['id_stage']
+                    st.switch_page("pages/01_Inserimento.py")
+                st.markdown("<hr>", unsafe_allow_html=True)
+        else:
+            st.success("Tutti i pick sono completi ✅")
 
-    with c_tr:
-        st.subheader("🏆 Ultimi risultati")
-        with st.container(border=True):
-            if l_d:
-                for l in l_d: st.write(f"✅ {l['race_name']}")
-                st.button("CLASSIFICHE 🏆", use_container_width=True, type="primary", on_click=lambda: st.switch_page("pages/02_Classifiche.py"))
-            else: st.info("In attesa di risultati.")
+    # --- 2. SEZIONE ULTIMI RISULTATI (FULL WIDTH) ---
+    st.markdown('<div class="section-title">🏆 Ultimi risultati</div>', unsafe_allow_html=True)
+    with st.container(border=True):
+        if l_d:
+            # Mostriamo i risultati in una lista pulita
+            for l in l_d:
+                st.markdown(f"✅ {l['race_name']}")
+            st.button("VEDI TUTTE LE CLASSIFICHE 🏆", use_container_width=True, type="primary", on_click=lambda: st.switch_page("pages/02_Classifiche.py"))
+        else:
+            st.info("In attesa di risultati.")
 
-    st.markdown("<br>", unsafe_allow_html=True)
-    c_bl, c_br = st.columns(2, gap="medium")
-    
-    with c_bl:
-        st.subheader("🏁 In corso")
-        with st.container(border=True):
-            if c_d:
-                for c in c_d: st.write(f"🚴‍♂️ {c['race_name']} (T{c['stage']})")
-            else: st.info("Nessuna gara live.")
-            
-    with c_br:
-        st.subheader("📅 Prossime gare")
-        with st.container(border=True):
-            if u_d:
-                for u in u_d: st.write(f"📅 {u['race_name']}")
-            else: st.write("Calendario vuoto.")
+    # --- 3. SEZIONE IN CORSO (FULL WIDTH) ---
+    st.markdown('<div class="section-title">🏁 In corso</div>', unsafe_allow_html=True)
+    with st.container(border=True):
+        if c_d:
+            for c in c_d:
+                st.markdown(f"🚴‍♂️ **{c['race_name']}** (Tappa {c['stage']})")
+        else:
+            st.info("Nessuna gara live in questo momento.")
+
+    # --- 4. SEZIONE PROSSIME GARE (FULL WIDTH) ---
+    st.markdown('<div class="section-title">📅 Prossime gare</div>', unsafe_allow_html=True)
+    with st.container(border=True):
+        if u_d:
+            for u in u_d:
+                st.markdown(f"📅 {u['race_name']}")
+        else:
+            st.write("Nessuna gara in programma a breve.")
 
 except Exception as e:
     st.error(f"Errore nel caricamento dati: {e}")
