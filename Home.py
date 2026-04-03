@@ -7,8 +7,8 @@ import extra_streamlit_components as stx
 # 1. Configurazione pagina
 st.set_page_config(page_title="Virtua Cycling - Home", layout="wide", page_icon="🚴‍♂️")
 
-# --- INIZIALIZZAZIONE COOKIE MANAGER ---
-cookie_manager = stx.CookieManager()
+# --- INIZIALIZZAZIONE COOKIE MANAGER CON KEY ---
+cookie_manager = stx.CookieManager(key="home_cookie_manager")
 
 # --- CSS PER MOBILE E HEADER ---
 st.markdown("""
@@ -50,7 +50,7 @@ if st.session_state.id_user_loggato is None:
                 st.session_state.nome_user_loggato = u_info.data['nickname']
                 st.session_state.is_admin = u_info.data.get('is_admin', False)
                 
-                # Aggiorna il cookie usando un oggetto datetime (CORRETTO)
+                # Aggiorna il cookie usando un oggetto datetime
                 cookie_manager.set("supabase_refresh_token", res_session.session.refresh_token, 
                                  expires_at=datetime.now() + timedelta(days=30))
                 st.rerun()
@@ -74,7 +74,7 @@ if st.session_state.id_user_loggato is None:
                     try:
                         res = supabase.auth.sign_in_with_password({"email": e_in, "password": p_in})
                         if res.user:
-                            # Salvataggio Cookie con datetime (CORRETTO)
+                            # Salvataggio Cookie con datetime
                             cookie_manager.set("supabase_refresh_token", res.session.refresh_token, 
                                              expires_at=datetime.now() + timedelta(days=30))
                             
@@ -85,7 +85,7 @@ if st.session_state.id_user_loggato is None:
                             st.session_state.is_admin = u_info.data.get('is_admin', False)
                             st.rerun()
                     except Exception as e:
-                        st.error(f"Errore: {e}")
+                        st.error("Credenziali errate.")
         with t2:
             with st.form("reg_form"):
                 n_e = st.text_input("Email")
