@@ -20,6 +20,7 @@ supabase = create_client(url, key)
 st.title("📊 Simulazione Classifica Live")
 
 # --- LOGICA RECUPERO PARAMETRI DA HOME ---
+# Usiamo .get per evitare errori se la chiave non esiste
 default_race_id = st.session_state.get('gara_selezionata_id')
 default_stage_id = st.session_state.get('tappa_selezionata_id')
 
@@ -29,11 +30,11 @@ col_f1, col_f2 = st.columns(2)
 with col_f1:
     gare = supabase.table("dim_race").select("id_race, name").execute().data
     
-    # Cerchiamo l'indice della gara passata dalla Home
+    # TROVA INDICE GARA (Conversione str() per sicurezza)
     idx_g = 0
-    if default_race_id:
+    if default_race_id is not None:
         for i, g in enumerate(gare):
-            if g['id_race'] == default_race_id:
+            if str(g['id_race']) == str(default_race_id):
                 idx_g = i
                 break
     
@@ -42,17 +43,18 @@ with col_f1:
 with col_f2:
     tappe = supabase.table("dim_race_stage").select("id_stage, id_stage_number").eq("id_race", sel_gara['id_race']).order("id_stage_number").execute().data
     
-    # Cerchiamo l'indice della tappa passata dalla Home
+    # TROVA INDICE TAPPA (Conversione str() per sicurezza)
     idx_t = 0
-    if default_stage_id:
+    if default_stage_id is not None:
         for i, t in enumerate(tappe):
-            if t['id_stage'] == default_stage_id:
+            if str(t['id_stage']) == str(default_stage_id):
                 idx_t = i
                 break
                 
     sel_tappa = st.selectbox("Seleziona Tappa", tappe, index=idx_t, format_func=lambda x: f"Tappa {x['id_stage_number']}")
 
-# Pulizia immediata dello stato per permettere cambi manuali successivi
+# --- PULIZIA SESSION STATE ---
+# Importante: cancelliamo solo DOPO che i selectbox sono stati renderizzati
 if 'gara_selezionata_id' in st.session_state:
     del st.session_state.gara_selezionata_id
 if 'tappa_selezionata_id' in st.session_state:
@@ -109,6 +111,5 @@ if res.data:
             "Punteggio": st.column_config.NumberColumn("Totale Punti", format="%d ⚡")
         }
     )
-
 else:
     st.info("Nessun dato disponibile per questa selezione.")
