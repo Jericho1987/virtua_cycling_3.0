@@ -1,6 +1,6 @@
 import streamlit as st
 from supabase import create_client
-from auth_utils import  check_auth, render_sidebar
+from auth_utils import check_auth, render_sidebar
 import pandas as pd
 
 # 1. Configurazione pagina
@@ -165,12 +165,37 @@ for i in range(limit):
 st.markdown("<br>", unsafe_allow_html=True)
 if st.button("🚀 CONFERMA FORMAZIONE", use_container_width=True, type="primary"):
     selected_ids = [p['id'] for p in picks if p['id'] is not None]
+    
     if len(selected_ids) < limit:
         st.error(f"Devi completare tutti i {limit} slot.")
     elif len(set(selected_ids)) < len(selected_ids):
         st.error("Hai inserito dei corridori duplicati!")
     else:
         try:
+            # --- CONTROLLO DUPLICATI TRA TAPPE (Solo per corse a tappe) ---
+            if sel_gara['type'] != 3:
+                res_dupes = supabase.table("view_check_duplicate_tour")\
+                    .select("id_rider")\
+                    .eq("id_user", user_id)\
+                    .eq("id_race", sel_gara['id'])\
+                    .neq("id_stage", sel_tappa['id_stage'])\
+                    .execute()
+                
+                used_riders = [r['id_rider'] for r in res_dupes.data]
+                
+                # Verifichiamo se uno dei corridori selezionati è già stato usato
+                dupe_found = False
+                for rid in selected_ids:
+                    if rid in used_riders:
+                        nome_rider = next((p['nome'] for p in picks if p['id'] == rid), "Corridore")
+                        st.error(f"🚫 Errore: **{nome_rider}** è già stato schierato in una tappa precedente di questa gara!")
+                        dupe_found = True
+                        break
+                
+                if dupe_found:
+                    st.stop()
+
+            # --- SALVATAGGIO ---
             supabase.table("fact_user_pick").delete().eq("id_user", user_id).eq("id_stage", sel_tappa['id_stage']).execute()
             to_insert = [{
                 "id_user": user_id,
