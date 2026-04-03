@@ -16,34 +16,20 @@ def check_auth():
         
         * { font-family: 'Inter', sans-serif; }
 
-        /* 1. NASCONDE L'ESTETICA DELL'HEADER MA MANTIENE IL TASTO MENU (HAMBURGER) */
-        header[data-testid="stHeader"] {
-            background-color: rgba(0,0,0,0) !important;
-            border: none !important;
-        }
-        
-        /* Nasconde la linea colorata superiore */
-        [data-testid="stDecoration"] {
+        /* 1. LASCIA L'HEADER STANDARD PER EVITARE PROBLEMI SU MOBILE */
+        /* Rimossa la rimozione dell'header */
+
+        /* 2. NASCONDE FOOTER E DECORAZIONE SUPERIORE */
+        footer, [data-testid="stDecoration"] {
             display: none !important;
         }
 
-        /* 2. NASCONDE FOOTER */
-        footer {
-            display: none !important;
-        }
-
-        /* 3. NASCONDE PULSANTI FLOATING E BADGE */
+        /* 3. NASCONDE PULSANTI DI DEPLOY E ALTRE INFO DI STREAMLIT */
         .stAppDeployButton, 
         [data-testid="stStatusWidget"],
-        [data-testid="stStatusWidget"] div,
         div[class*="viewerBadge"],
-        div[class*="StatusWidget"],
-        button[title="View source on GitHub"],
-        iframe[title="Managed Hosting"] {
+        button[title="View source on GitHub"] {
             display: none !important;
-            visibility: hidden !important;
-            opacity: 0 !important;
-            pointer-events: none !important;
         }
 
         /* Sidebar Glassmorphism */
