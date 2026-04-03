@@ -166,10 +166,7 @@ try:
     with st.container(border=True):
         if c_d:
             for c in c_d:
-                # Modifica 1: Nome senza tappa se id_type_race è 3
                 nome_live = c['race_name'] if c.get('id_type_race') == 3 else f"{c['race_name']} (Tappa {c['stage']})"
-                
-                # Modifica 2: Aggiunta bottone "Vai" con logica reindirizzamento
                 col_txt_c, col_btn_c = st.columns([0.8, 0.2])
                 col_txt_c.markdown(f"<div style='display: flex; align-items: center; min-height: 45px;'>🚴‍♂️ <b>{nome_live}</b></div>", unsafe_allow_html=True)
                 
@@ -186,7 +183,17 @@ try:
     with st.container(border=True):
         if u_d:
             for u in u_d:
-                st.markdown(f"📅 {u['race_name']}")
+                # Recupero e formattazione della data se presente
+                data_str = ""
+                if u.get('stage_date'):
+                    try:
+                        dt = datetime.fromisoformat(u['stage_date'])
+                        data_str = dt.strftime("%d/%m")
+                    except:
+                        data_str = str(u['stage_date'])
+                
+                label_data = f"<span style='color: #ff4b4b; font-weight: bold; margin-right: 10px;'>{data_str}</span>" if data_str else ""
+                st.markdown(f"<div>{label_data} {u['race_name']}</div>", unsafe_allow_html=True)
         else:
             st.write("Nessuna gara in programma a breve.")
 
