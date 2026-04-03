@@ -1,5 +1,6 @@
 import streamlit as st
 import extra_streamlit_components as stx
+from datetime import datetime, timedelta
 
 def check_auth():
     """Controlla l'auth e applica il restyling globale dell'app."""
@@ -11,7 +12,7 @@ def check_auth():
             st.switch_page("Home.py")
         st.stop()
     else:
-        # NOVITÀ: Forza la visualizzazione se loggato (Risolve il problema mobile)
+        # Forza la visualizzazione se loggato
         st.markdown("<style>[data-testid='stSidebar'], [data-testid='stSidebarCollapsedControl'] {display: flex !important;}</style>", unsafe_allow_html=True)
     
     # --- RESTYLING GRAFICO GLOBALE ---
@@ -21,15 +22,10 @@ def check_auth():
         
         * { font-family: 'Inter', sans-serif; }
 
-        /* 1. HEADER STANDARD */
-        /* Teniamo l'header pulito ma visibile */
-
-        /* 2. NASCONDE FOOTER E DECORAZIONE SUPERIORE */
         footer, [data-testid="stDecoration"] {
             display: none !important;
         }
 
-        /* 3. NASCONDE PULSANTI DI DEPLOY E ALTRE INFO */
         .stAppDeployButton, 
         [data-testid="stStatusWidget"],
         div[class*="viewerBadge"],
@@ -37,14 +33,12 @@ def check_auth():
             display: none !important;
         }
 
-        /* Sidebar Glassmorphism */
         [data-testid="stSidebar"] {
             background-color: rgba(20, 20, 20, 0.8) !important;
             backdrop-filter: blur(15px);
             border-right: 1px solid rgba(255, 255, 255, 0.05);
         }
 
-        /* Container delle Card */
         div[data-testid="stVerticalBlock"] > div > div[style*="border"] {
             background: rgba(30, 30, 30, 0.6) !important;
             border: 1px solid rgba(255, 255, 255, 0.1) !important;
@@ -59,7 +53,6 @@ def check_auth():
             box-shadow: 0 10px 20px rgba(0,0,0,0.3);
         }
 
-        /* Bottoni Custom */
         .stButton > button {
             border-radius: 10px !important;
             border: none !important;
@@ -73,7 +66,6 @@ def check_auth():
             box-shadow: 0 4px 15px rgba(255, 75, 75, 0.4);
         }
 
-        /* User Box Sidebar */
         .sidebar-user-box { 
             display: flex; 
             align-items: center; 
@@ -104,8 +96,8 @@ def check_auth():
 
 def render_sidebar():
     """Disegna la sidebar con lo stile aggiornato."""
-    # Inizializziamo il cookie manager per gestire il logout
-    cookie_manager = stx.CookieManager()
+    # Inizializziamo il cookie manager con key specifica per la sidebar
+    cookie_manager = stx.CookieManager(key="sidebar_cookie_manager")
 
     with st.sidebar:
         st.page_link("Home.py", label="Home", icon="🏠")
