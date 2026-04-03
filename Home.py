@@ -151,7 +151,7 @@ try:
         else:
             st.success("Tutti i pick sono completi ✅")
 
-    # --- 2. SEZIONE IN CORSO (SPOSTATA QUI) ---
+    # --- 2. SEZIONE IN CORSO ---
     st.markdown('<div class="section-title">🏁 In corso</div>', unsafe_allow_html=True)
     with st.container(border=True):
         if c_d:
@@ -163,12 +163,12 @@ try:
                 if col_btn_c.button("Vai", key=f"c_{c['id_stage']}", use_container_width=True):
                     st.session_state.gara_selezionata_id = c['id_race']
                     st.session_state.tappa_selezionata_id = c['id_stage']
-                    st.switch_page("pages/01_Inserimento.py")
+                    st.switch_page("pages/02_Classifiche.py")
                 st.markdown("<hr>", unsafe_allow_html=True)
         else:
             st.info("Nessuna gara live in questo momento.")
 
-    # --- 3. SEZIONE ULTIMI RISULTATI (SPOSTATA QUI) ---
+    # --- 3. SEZIONE ULTIMI RISULTATI ---
     st.markdown('<div class="section-title">🏆 Ultimi risultati</div>', unsafe_allow_html=True)
     with st.container(border=True):
         if l_d:
