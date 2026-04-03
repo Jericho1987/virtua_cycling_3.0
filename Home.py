@@ -54,17 +54,22 @@ if st.session_state.id_user_loggato is None:
             with st.form("login_form"):
                 e_in = st.text_input("Email")
                 p_in = st.text_input("Password", type="password")
-                if st.form_submit_button("ACCEDI 🚀", use_container_width=True):
+                submit = st.form_submit_button("ACCEDI 🚀", use_container_width=True)
+                
+                if submit:
                     try:
                         res = supabase.auth.sign_in_with_password({"email": e_in, "password": p_in})
                         if res.user:
                             u_id = res.user.id
                             u_info = supabase.table("dim_user").select("nickname, is_admin").eq("id_user", u_id).single().execute()
+                            # Salvataggio immediato in session_state prima del rerun
                             st.session_state.id_user_loggato = u_id
                             st.session_state.nome_user_loggato = u_info.data['nickname']
                             st.session_state.is_admin = u_info.data.get('is_admin', False)
                             st.rerun()
-                    except:
+                        else:
+                            st.error("Credenziali errate.")
+                    except Exception:
                         st.error("Credenziali errate.")
         with t2:
             with st.form("reg_form"):
@@ -143,7 +148,6 @@ try:
     st.markdown('<div class="section-title">🏆 Ultimi risultati</div>', unsafe_allow_html=True)
     with st.container(border=True):
         if l_d:
-            # Mostriamo i risultati in una lista pulita
             for l in l_d:
                 st.markdown(f"✅ {l['race_name']}")
             st.button("VEDI TUTTE LE CLASSIFICHE 🏆", use_container_width=True, type="primary", on_click=lambda: st.switch_page("pages/02_Classifiche.py"))
