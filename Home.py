@@ -42,7 +42,6 @@ if st.session_state.id_user_loggato is None:
     saved_token = cookie_manager.get(cookie="supabase_refresh_token")
     if saved_token:
         try:
-            # Tenta il ripristino della sessione tramite refresh token
             res_session = supabase.auth.refresh_session(saved_token)
             if res_session and res_session.user:
                 u_id = res_session.user.id
@@ -52,14 +51,14 @@ if st.session_state.id_user_loggato is None:
                 st.session_state.nome_user_loggato = u_info.data['nickname']
                 st.session_state.is_admin = u_info.data.get('is_admin', False)
                 
-                # Aggiorna il cookie per estendere la durata (30 giorni)
+                # Aggiorna il cookie (30 giorni)
                 cookie_manager.set("supabase_refresh_token", res_session.session.refresh_token, 
                                  expires_at=time_lib.time() + (30 * 24 * 3600))
                 st.rerun()
         except:
             pass
 
-# Se ancora non loggato, mostra il form di Login/Registrazione
+# --- FORM DI LOGIN / REGISTRAZIONE ---
 if st.session_state.id_user_loggato is None:
     st.markdown("<style>[data-testid='stSidebar'], [data-testid='stSidebarCollapsedControl'] { display: none !important; } .stTabs [data-baseweb='tab-list'] { justify-content: center; }</style>", unsafe_allow_html=True)
     _, col_login, _ = st.columns([1, 1.2, 1])
@@ -68,7 +67,7 @@ if st.session_state.id_user_loggato is None:
         t1, t2 = st.tabs(["🔐 Accedi", "✨ Registrati"])
         with t1:
             with st.form("login_form"):
-                e_in = st.text_input("Email")
+                e_in = st.text_input("Email").strip()
                 p_in = st.text_input("Password", type="password")
                 submit = st.form_submit_button("ACCEDI 🚀", use_container_width=True)
                 
@@ -76,7 +75,7 @@ if st.session_state.id_user_loggato is None:
                     try:
                         res = supabase.auth.sign_in_with_password({"email": e_in, "password": p_in})
                         if res.user:
-                            # SALVATAGGIO COOKIE
+                            # Salvataggio Cookie
                             cookie_manager.set("supabase_refresh_token", res.session.refresh_token, 
                                              expires_at=time_lib.time() + (30 * 24 * 3600))
                             
@@ -86,10 +85,9 @@ if st.session_state.id_user_loggato is None:
                             st.session_state.nome_user_loggato = u_info.data['nickname']
                             st.session_state.is_admin = u_info.data.get('is_admin', False)
                             st.rerun()
-                        else:
-                            st.error("Credenziali errate.")
-                    except Exception:
-                        st.error("Credenziali errate.")
+                    except Exception as e:
+                        # Mostra l'errore reale di Supabase per il debug
+                        st.error(f"Errore: {e}")
         with t2:
             with st.form("reg_form"):
                 n_e = st.text_input("Email")
@@ -98,23 +96,17 @@ if st.session_state.id_user_loggato is None:
                 if st.form_submit_button("REGISTRATI ✨", use_container_width=True):
                     try:
                         supabase.auth.sign_up({"email": n_e, "password": n_p, "options": {"data": {"nickname": n_n}}})
-                        st.success("Ok! Ora accedi.")
+                        st.success("Registrazione effettuata! Controlla l'email se necessario o prova ad accedere.")
                     except Exception as e: 
                         st.error(f"Errore: {e}")
     st.stop()
 
-# --- DASHBOARD UTENTE (ESECUTO SOLO SE LOGGATO) ---
+# --- DASHBOARD UTENTE ---
 check_auth()
 render_sidebar()
 
-# FORZA RIPRISTINO SIDEBAR PER MOBILE
-st.markdown("""
-    <style>
-        [data-testid="stSidebar"], [data-testid="stSidebarCollapsedControl"] { 
-            display: flex !important; 
-        }
-    </style>
-""", unsafe_allow_html=True)
+# Forza visibilità sidebar (utile per mobile)
+st.markdown("""<style>[data-testid="stSidebar"], [data-testid="stSidebarCollapsedControl"] { display: flex !important; }</style>""", unsafe_allow_html=True)
 
 logo = "https://github.com/Jericho1987/virtua_cycling_3.0/blob/main/logo_pwa.png?raw=true"
 st.markdown(f"""
@@ -146,20 +138,19 @@ try:
                     deadline = datetime.combine(d_val, t_val)
                     diff = deadline - datetime.now()
                     if diff.total_seconds() > 0:
-                        giorni, ore, minuti = diff.days, diff.seconds // 3600, (diff.seconds // 60) % 60
-                        color_num = "#ff4b4b" if giorni == 0 and ore < 12 else "#b0b0b0"
+                        g, o, m = diff.days, diff.seconds // 3600, (diff.seconds // 60) % 60
+                        color_num = "#ff4b4b" if g == 0 and o < 12 else "#b0b0b0"
                         bg_panel = "#0e1117"
                         countdown_html = f'''
                             <div style="display: flex; align-items: center; gap: 4px; font-family: 'Courier New', monospace; font-weight: bold; margin-left: 12px; transform: scale(0.95); transform-origin: left center;">
                                 <span style="color: #606060; font-size: 0.7rem; margin-right: 2px;">⏳</span>
-                                {'<div style="background-color: '+bg_panel+'; color: '+color_num+'; padding: 3px 6px; border-radius: 4px; border: 1px solid #333;">'+f"{giorni:02d}"+'<span style="font-size: 0.6rem; color: #606060; margin-left: 1px;">d</span></div>' if giorni > 0 else ''}
-                                <div style="background-color: {bg_panel}; color: {color_num}; padding: 3px 6px; border-radius: 4px; border: 1px solid #333;">{ore:02d}<span style="font-size: 0.6rem; color: #606060; margin-left: 1px;">h</span></div>
+                                {'<div style="background-color: '+bg_panel+'; color: '+color_num+'; padding: 3px 6px; border-radius: 4px; border: 1px solid #333;">'+f"{g:02d}"+'<span style="font-size: 0.6rem; color: #606060; margin-left: 1px;">d</span></div>' if g > 0 else ''}
+                                <div style="background-color: {bg_panel}; color: {color_num}; padding: 3px 6px; border-radius: 4px; border: 1px solid #333;">{o:02d}<span style="font-size: 0.6rem; color: #606060; margin-left: 1px;">h</span></div>
                                 <span style="color: #333; font-size: 1rem;">:</span>
-                                <div style="background-color: {bg_panel}; color: {color_num}; padding: 3px 6px; border-radius: 4px; border: 1px solid #333;">{minuti:02d}<span style="font-size: 0.6rem; color: #606060; margin-left: 1px;">m</span></div>
+                                <div style="background-color: {bg_panel}; color: {color_num}; padding: 3px 6px; border-radius: 4px; border: 1px solid #333;">{m:02d}<span style="font-size: 0.6rem; color: #606060; margin-left: 1px;">m</span></div>
                             </div>
                         '''
-                except:
-                    pass
+                except: pass
 
                 col_txt, col_btn = st.columns([0.8, 0.2])
                 col_txt.markdown(f"<div style='display: flex; align-items: center; min-height: 45px;'><b>{nome_mostrato}</b>{countdown_html}</div>", unsafe_allow_html=True)
@@ -179,7 +170,6 @@ try:
                 nome_live = c['race_name'] if c.get('id_type_race') == 3 else f"{c['race_name']} (Tappa {c['stage']})"
                 col_txt_c, col_btn_c = st.columns([0.8, 0.2])
                 col_txt_c.markdown(f"<div style='display: flex; align-items: center; min-height: 45px;'>🚴‍♂️ <b>{nome_live}</b></div>", unsafe_allow_html=True)
-                
                 if col_btn_c.button("Vai", key=f"c_{c['id_stage']}", use_container_width=True):
                     st.session_state.gara_selezionata_id = c['id_race']
                     st.session_state.tappa_selezionata_id = c['id_stage']
@@ -195,7 +185,6 @@ try:
             for l in l_d:
                 col_l_txt, col_l_btn = st.columns([0.8, 0.2])
                 col_l_txt.markdown(f"<div style='display: flex; align-items: center; min-height: 45px;'>✅ <b>{l['race_name']}</b></div>", unsafe_allow_html=True)
-                
                 if col_l_btn.button("Vai", key=f"l_{l['id_stage']}", use_container_width=True):
                     st.session_state.gara_selezionata_id = l['id_race']
                     st.session_state.tappa_selezionata_id = l['id_stage']
@@ -214,8 +203,7 @@ try:
                     try:
                         dt = datetime.fromisoformat(str(u['stage_date']))
                         data_str = dt.strftime("%d/%m")
-                    except:
-                        data_str = str(u['stage_date'])
+                    except: data_str = str(u['stage_date'])
                 
                 nome_prossima = u['race_name']
                 if u.get('id_type_race') != 3 and u.get('stage'):
