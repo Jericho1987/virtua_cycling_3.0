@@ -1,22 +1,24 @@
 import streamlit as st
 import pandas as pd
 from supabase import create_client
-from auth_utils import check_auth, render_sidebar # <--- 1. AGGIUNGI QUESTA RIGA
+from auth_utils import check_auth, render_sidebar
 
-st.set_page_config(page_title="Classifiche e Risultati", layout="wide", page_icon="🏆")
+st.set_page_config(page_title="Simulazione Punti", layout="wide", page_icon="📊")
 
 # --- PROTEZIONE E SIDEBAR ---
-check_auth()      # <--- 2. AGGIUNGI QUESTA (Blocca i non loggati e mette il CSS)
-render_sidebar()  # <--- 3. AGGIUNGI QUESTA (Disegna i link e l'area utente)
+check_auth()
+render_sidebar()
 
 if not st.session_state.get('id_user_loggato'):
     st.switch_page("Home.py")
 
+# --- CONNESSIONE ---
 url = st.secrets["SUPABASE_URL"]
 key = st.secrets["SUPABASE_KEY"]
 supabase = create_client(url, key)
 
-st.title("🏆 Risultati e Classifiche")
+st.title("📊 Simulazione Classifica Live")
+st.markdown("---")
 
 # --- FILTRI ---
 col1, col2 = st.columns(2)
@@ -27,46 +29,56 @@ with col2:
     tappe = supabase.table("dim_race_stage").select("id_stage, id_stage_number").eq("id_race", sel_gara['id_race']).order("id_stage_number").execute().data
     sel_tappa = st.selectbox("Seleziona Tappa", tappe, format_func=lambda x: f"Tappa {x['id_stage_number']}")
 
-tabs = st.tabs(["📊 Classifica Tappa", "📈 Classifica Generale", "🔍 Picks Tutti"])
+# --- RECUPERO DATI DALLA VIEW ---
+# Filtriamo per id_stage che arriva dal selectbox sopra
+res = supabase.table("view_simulazione_punti")\
+    .select("posizione_classifica, display_name, punti_totali")\
+    .eq("id_stage", sel_tappa['id_stage'])\
+    .order("posizione_classifica")\
+    .execute()
 
-# --- TAB 1: CLASSIFICA TAPPA (Usa la nuova View) ---
-with tabs[0]:
-    st.subheader(f"Punteggi: {sel_gara['name']} - Tappa {sel_tappa['id_stage_number']}")
-    res_tappa = supabase.table("view_results_ranking")\
-        .select("user_name, total_punti_base, malus_vincitore, bonus_top_10, punteggio_totale, dettaglio_quintetto")\
-        .eq("id_stage", sel_tappa['id_stage'])\
-        .order("punteggio_totale", desc=True)\
-        .execute()
+if res.data:
+    df = pd.DataFrame(res.data)
+
+    # --- LOGICA PER LE COPPETTE ---
+    # Funzione per aggiungere icone alle prime posizioni
+    def add_trophy(pos):
+        if pos == 1: return "🥇"
+        if pos == 2: return "🥈"
+        if pos == 3: return "🥉"
+        return str(pos)
+
+    df['Pos.'] = df['posizione_classifica'].apply(add_trophy)
     
-    if res_tappa.data:
-        df_tappa = pd.DataFrame(res_tappa.data)
-        df_tappa.columns = ["Utente", "Punti Base", "Malus Vinc.", "Bonus Top10", "TOTALE", "Dettaglio (Pos. Arrivo)"]
-        st.dataframe(df_tappa, use_container_width=True, hide_index=True)
-    else:
-        st.info("Risultati non ancora disponibili per questa tappa.")
+    # Rinominiamo le colonne per renderle "carine"
+    df_display = df[['Pos.', 'display_name', 'punti_totali']].copy()
+    df_display.columns = ["Rank", "Giocatore", "Punti Totali"]
 
-# --- TAB 2: CLASSIFICA GENERALE GARA ---
-with tabs[1]:
-    st.subheader(f"Classifica Generale: {sel_gara['name']}")
-    res_gen = supabase.table("view_results_ranking")\
-        .select("user_name, punteggio_totale")\
-        .eq("id_race", sel_gara['id_race'])\
-        .execute()
+    # --- RENDERING TABELLA ---
+    st.subheader(f"Classifica Simulazione: {sel_gara['name']} - T {sel_tappa['id_stage_number']}")
     
-    if res_gen.data:
-        df_gen = pd.DataFrame(res_gen.data)
-        classifica = df_gen.groupby("user_name")["punteggio_totale"].sum().reset_index()
-        classifica = classifica.sort_values(by="punteggio_totale", ascending=False)
-        classifica.columns = ["Utente", "Punti Totali"]
-        st.table(classifica)
-    else:
-        st.write("Nessun dato disponibile.")
+    # Usiamo un container per lo stile
+    st.dataframe(
+        df_display, 
+        use_container_width=True, 
+        hide_index=True,
+        column_config={
+            "Rank": st.column_config.TextColumn("Pos.", width="small"),
+            "Giocatore": st.column_config.TextColumn("Utente"),
+            "Punti Totali": st.column_config.NumberColumn("Punteggio", format="%d pt")
+        }
+    )
+    
+    # Tip: Mostriamo il podio in alto con dei widget metrici se vuoi un tocco extra
+    st.markdown("### 🏆 Il Podio")
+    podio_cols = st.columns(3)
+    
+    for i, col in enumerate(podio_cols):
+        if len(df) > i:
+            nome = df.iloc[i]['display_name']
+            punti = df.iloc[i]['punti_totali']
+            icone = ["🥇 1°", "🥈 2°", "🥉 3°"]
+            col.metric(label=icone[i], value=f"{punti} pt", delta=nome, delta_color="off")
 
-# --- TAB 3: CONFRONTO FORMAZIONI ---
-with tabs[2]:
-    res_comp = supabase.table("view_all_picks_comparison")\
-        .select("user_name, formazione")\
-        .eq("id_stage", sel_tappa['id_stage'])\
-        .execute()
-    if res_comp.data:
-        st.dataframe(pd.DataFrame(res_comp.data), use_container_width=True, hide_index=True)
+else:
+    st.info("Nessun dato di simulazione disponibile per questa tappa.")
