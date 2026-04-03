@@ -17,21 +17,26 @@ def check_auth():
         * { font-family: 'Inter', sans-serif; }
 
         /* PULIZIA INTERFACCIA STREAMLIT (TOP & BOTTOM) */
-        header[data-testid="stHeader"] {
-            visibility: hidden;
-            display: none;
+        header[data-testid="stHeader"], 
+        #MainMenu, 
+        footer, 
+        [data-testid="stDecoration"] {
+            display: none !important;
+            visibility: hidden !important;
         }
-        #MainMenu {visibility: hidden;}
-        footer {visibility: hidden; display: none;}
         
-        /* Nasconde badge, corona, stato script e pulsante deploy in basso */
-        .viewerBadge_container__1QSob, 
-        [data-testid="stStatusWidget"], 
+        /* RIMOZIONE TOTALE ICONE IN BASSO A DESTRA (BADGE, STATO, CORONA) */
+        /* Colpiamo tutti i possibili contenitori e classi generate da Streamlit Cloud */
+        div[data-testid="stStatusWidget"],
         .stAppDeployButton,
-        [data-testid="stDecoration"],
+        .viewerBadge_container__1QSob,
+        div[class*="viewerBadge"],
+        div[class*="stStatusWidget"],
         iframe[title="Managed Hosting"] {
             display: none !important;
             visibility: hidden !important;
+            height: 0 !important;
+            width: 0 !important;
         }
 
         /* Sidebar Glassmorphism */
