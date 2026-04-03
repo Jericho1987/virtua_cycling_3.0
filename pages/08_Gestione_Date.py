@@ -1,18 +1,17 @@
 import streamlit as st
 from supabase import create_client
 from auth_utils import check_auth, render_sidebar
-import pandas as pd
-from datetime import datetime, time
+from datetime import datetime
 
 # 1. Configurazione pagina
-st.set_page_config(page_title="Admin - Gestione Palinsesto", layout="wide", page_icon="📅")
+st.set_page_config(page_title="Admin - Gestione Date", layout="wide", page_icon="📅")
 
 # 2. Protezione e Sidebar
 check_auth()
 render_sidebar()
 
 if not st.session_state.get('is_admin', False):
-    st.error("Accesso riservato agli amministratori.")
+    st.error("Accesso negato.")
     st.stop()
 
 # 3. Connessione Supabase
@@ -20,96 +19,88 @@ url = st.secrets["SUPABASE_URL"]
 key = st.secrets["SUPABASE_KEY"]
 supabase = create_client(url, key)
 
-st.title("📅 Gestione Palinsesto Gare")
-st.markdown("Modifica date, orari e tipologie in formato griglia compatta.")
+st.title("📅 Gestione Rapida Tappe")
 
-# --- 4. CARICAMENTO DATI ---
-@st.cache_data(ttl=5) 
-def get_admin_data():
-    res_stages = supabase.table("dim_race_stage").select("*").order("id_race, id_stage_number").execute()
-    res_types = supabase.table("dim_stage_type").select("id_stage_type, description").execute()
-    res_races = supabase.table("dim_race").select("id_race, name").execute()
-    
-    return pd.DataFrame(res_stages.data), pd.DataFrame(res_types.data), pd.DataFrame(res_races.data)
+# Generiamo la lista degli orari (ogni 15 minuti) per la selectbox
+TIME_OPTIONS = [f"{h:02d}:{m:02d}" for h in range(24) for m in (0, 15, 30, 45)]
 
 try:
-    df_stages, df_types, df_races = get_admin_data()
-
-    if df_stages.empty:
+    # Caricamento dati
+    res = supabase.table("view_race_admin").select("*").order("stage_date").execute()
+    res_types = supabase.table("dim_stage_type").select("id_stage_type, description").execute()
+    
+    df_data = res.data
+    type_options = {t['description']: t['id_stage_type'] for t in res_types.data}
+    
+    if not df_data:
         st.info("Nessuna tappa trovata.")
         st.stop()
 
-    # Merge per avere i nomi delle gare
-    df_display = df_stages.merge(df_races, on="id_race")
-    
-    # Mappa dei tipi tappa
-    type_map = dict(zip(df_types['id_stage_type'], df_types['description']))
-    df_display['Tipo Tappa'] = df_display['id_stage_type'].map(type_map)
+    # Filtro Gara
+    races = sorted(list(set([d['race_name'] for d in df_data])))
+    sel_race = st.selectbox("Filtra per Gara", ["Tutte"] + races)
+    display_data = df_data if sel_race == "Tutte" else [d for d in df_data if d['race_name'] == sel_race]
 
-    # --- TRASFORMAZIONE DATI PER COMPATIBILITÀ EDITING ---
-    # Convertiamo la stringa "YYYY-MM-DD" in oggetto Date di Python
-    df_display['stage_date'] = pd.to_datetime(df_display['stage_date']).dt.date
-    
-    # Convertiamo la stringa "HH:MM:SS" in oggetto Time di Python
-    df_display['stage_time'] = pd.to_datetime(df_display['stage_time'], format='%H:%M:%S').dt.time
+    # --- HEADER TABELLA ---
+    h1, h2, h3, h4, h5, h6 = st.columns([2, 0.6, 1.2, 1, 1.5, 0.8])
+    h1.caption("GARA / DESCRIZIONE")
+    h2.caption("T.")
+    h3.caption("DATA")
+    h4.caption("ORARIO")
+    h5.caption("TIPOLOGIA")
+    h6.caption("AZIONE")
+    st.write("") # Spaziatore
 
-    # --- 5. FILTRI ---
-    races_list = sorted(df_races['name'].unique())
-    sel_race = st.selectbox("Filtra per Gara", ["Tutte"] + races_list)
-    
-    if sel_race != "Tutte":
-        df_display = df_display[df_display['name'] == sel_race]
-
-    df_grid = df_display[[
-        'id_stage', 'name', 'id_stage_number', 'stage_date', 'stage_time', 'Tipo Tappa'
-    ]].copy()
-
-    # --- 6. GRIGLIA EDITABILE ---
-    st.write("### Griglia Modificabile")
-    
-    edited_df = st.data_editor(
-        df_grid,
-        column_config={
-            "id_stage": None, 
-            "name": st.column_config.TextColumn("Gara", disabled=True),
-            "id_stage_number": st.column_config.NumberColumn("Tappa #", disabled=True),
-            "stage_date": st.column_config.DateColumn("Data", format="DD/MM/YYYY", required=True),
-            "stage_time": st.column_config.TimeColumn("Orario", format="HH:mm", required=True),
-            "Tipo Tappa": st.column_config.SelectboxColumn(
-                "Tipologia",
-                options=list(type_map.values()),
-                required=True
-            )
-        },
-        hide_index=True,
-        use_container_width=True,
-        key="stage_editor_v2"
-    )
-
-    # --- 7. LOGICA DI SALVATAGGIO ---
-    st.divider()
-    if st.button("💾 Salva Tutte le Modifiche", type="primary"):
-        inv_type_map = {v: k for k, v in type_map.items()}
+    # --- RIGHE TABELLA ---
+    for item in display_data:
+        sid = item['id_stage']
         
-        success_count = 0
-        with st.spinner("Salvataggio..."):
-            for index, row in edited_df.iterrows():
+        # Pulizia orario dal DB (es. da "12:00:00" a "12:00")
+        current_time_db = item['stage_time'][:5] if item['stage_time'] else "12:00"
+        if current_time_db not in TIME_OPTIONS:
+            TIME_OPTIONS.append(current_time_db)
+            TIME_OPTIONS.sort()
+
+        with st.container():
+            c1, c2, c3, c4, c5, c6 = st.columns([2, 0.6, 1.2, 1, 1.5, 0.8])
+            
+            # 1. Info Gara
+            c1.markdown(f"**{item['race_name']}**")
+            c1.caption(item.get('stage_type_desc', ''))
+
+            # 2. Numero Tappa
+            c2.write(f"#{item['id_stage_number']}")
+            
+            # 3. Data (Widget standard, molto compatto)
+            curr_date = datetime.strptime(item['stage_date'], '%Y-%m-%d').date() if item['stage_date'] else datetime.now().date()
+            new_date = c3.date_input("Data", value=curr_date, key=f"d_{sid}", label_visibility="collapsed")
+            
+            # 4. Orario (CON LA FRECCINA - Selectbox)
+            idx_time = TIME_OPTIONS.index(current_time_db) if current_time_db in TIME_OPTIONS else 0
+            new_time_str = c4.selectbox("Ora", options=TIME_OPTIONS, index=idx_time, key=f"t_{sid}", label_visibility="collapsed")
+            
+            # 5. Tipo Tappa (CON LA FRECCINA - Selectbox)
+            type_list = list(type_options.keys())
+            current_type_desc = item['stage_type_desc']
+            idx_type = type_list.index(current_type_desc) if current_type_desc in type_list else 0
+            new_type_desc = c5.selectbox("Tipo", options=type_list, index=idx_type, key=f"s_{sid}", label_visibility="collapsed")
+            
+            # 6. Bottone Salva
+            if c6.button("Salva ✅", key=f"b_{sid}", use_container_width=True):
                 update_payload = {
-                    "stage_date": row['stage_date'].isoformat(), # Torna stringa per il DB
-                    "stage_time": row['stage_time'].strftime('%H:%M:%S'), # Torna stringa per il DB
-                    "id_stage_type": inv_type_map[row['Tipo Tappa']]
+                    "stage_date": new_date.strftime('%Y-%m-%d'),
+                    "stage_time": f"{new_time_str}:00",
+                    "id_stage_type": type_options[new_type_desc]
                 }
                 
-                supabase.table("dim_race_stage")\
-                    .update(update_payload)\
-                    .eq("id_stage", row['id_stage'])\
-                    .execute()
-                success_count += 1
+                res_upd = supabase.table("dim_race_stage").update(update_payload).eq("id_stage", sid).execute()
+                
+                if res_upd.data:
+                    st.toast(f"Tappa {item['id_stage_number']} aggiornata!", icon="🚀")
+                else:
+                    st.error("Errore nell'aggiornamento")
 
-        if success_count > 0:
-            st.success(f"✅ Aggiornate {success_count} tappe!")
-            st.cache_data.clear()
-            st.rerun()
+        st.divider()
 
 except Exception as e:
-    st.error(f"Errore tecnico: {e}")
+    st.error(f"Errore caricamento: {e}")
