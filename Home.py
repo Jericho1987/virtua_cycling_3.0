@@ -151,21 +151,7 @@ try:
         else:
             st.success("Tutti i pick sono completi ✅")
 
-    # --- 2. SEZIONE ULTIMI RISULTATI ---
-    st.markdown('<div class="section-title">🏆 Ultimi risultati</div>', unsafe_allow_html=True)
-    with st.container(border=True):
-        if l_d:
-            for l in l_d:
-                st.markdown(f"✅ {l['race_name']}")
-            # Bottone reso uniforme agli altri (rimosso type="primary" e maiuscolo eccessivo)
-            col_u_txt, col_u_btn = st.columns([0.8, 0.2])
-            col_u_txt.markdown("<div style='display: flex; align-items: center; min-height: 45px;'>Visualizza classifiche</div>", unsafe_allow_html=True)
-            if col_u_btn.button("Vai", key="btn_classifiche_home", use_container_width=True):
-                st.switch_page("pages/02_Classifiche.py")
-        else:
-            st.info("In attesa di risultati.")
-
-    # --- 3. SEZIONE IN CORSO ---
+    # --- 2. SEZIONE IN CORSO (SPOSTATA QUI) ---
     st.markdown('<div class="section-title">🏁 In corso</div>', unsafe_allow_html=True)
     with st.container(border=True):
         if c_d:
@@ -182,6 +168,20 @@ try:
         else:
             st.info("Nessuna gara live in questo momento.")
 
+    # --- 3. SEZIONE ULTIMI RISULTATI (SPOSTATA QUI) ---
+    st.markdown('<div class="section-title">🏆 Ultimi risultati</div>', unsafe_allow_html=True)
+    with st.container(border=True):
+        if l_d:
+            for l in l_d:
+                st.markdown(f"✅ {l['race_name']}")
+            
+            col_u_txt, col_u_btn = st.columns([0.8, 0.2])
+            col_u_txt.markdown("<div style='display: flex; align-items: center; min-height: 45px;'>Visualizza classifiche</div>", unsafe_allow_html=True)
+            if col_u_btn.button("Vai", key="btn_classifiche_home", use_container_width=True):
+                st.switch_page("pages/02_Classifiche.py")
+        else:
+            st.info("In attesa di risultati.")
+
     # --- 4. SEZIONE PROSSIME GARE ---
     st.markdown('<div class="section-title">📅 Prossime gare</div>', unsafe_allow_html=True)
     with st.container(border=True):
@@ -196,7 +196,6 @@ try:
                         data_str = str(u['stage_date'])
                 
                 nome_prossima = u['race_name']
-                # Modificato per mostrare "Tappa" per esteso invece di "T"
                 if u.get('id_type_race') != 3 and u.get('stage'):
                     nome_prossima = f"{u['race_name']} (Tappa {u['stage']})"
                 
