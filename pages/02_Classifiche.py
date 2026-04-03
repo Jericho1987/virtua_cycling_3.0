@@ -19,13 +19,28 @@ supabase = create_client(url, key)
 
 st.title("📊 Classifica")
 
-# --- 1. RECUPERO PARAMETRI (SENZA CANCELLARLI SUBITO) ---
-# Usiamo variabili locali per non perdere il riferimento durante il caricamento
+# --- 1. RECUPERO PARAMETRI E LOGICA DEFAULT ---
 target_race = st.session_state.get('gara_selezionata_id')
 target_stage = st.session_state.get('tappa_selezionata_id')
 
-# DEBUG (opzionale, togli il commento se vuoi vedere cosa arriva dalla Home)
-# st.write(f"DEBUG: Gara {target_race}, Tappa {target_stage}")
+# Se non ci sono parametri passati dalla Home, cerchiamo l'ultimo stage con dati disponibili
+if target_race is None or target_stage is None:
+    last_data_query = supabase.table("view_simulazione_punti")\
+        .select("id_stage")\
+        .order("id_stage", desc=True)\
+        .limit(1)\
+        .execute()
+    
+    if last_data_query.data:
+        target_stage = last_data_query.data[0]['id_stage']
+        # Recuperiamo l'id_race corrispondente allo stage trovato
+        race_info = supabase.table("dim_race_stage")\
+            .select("id_race")\
+            .eq("id_stage", target_stage)\
+            .single()\
+            .execute()
+        if race_info.data:
+            target_race = race_info.data['id_race']
 
 # --- 2. FILTRI ---
 col_f1, col_f2 = st.columns(2)
@@ -35,7 +50,6 @@ with col_f1:
     
     idx_g = 0
     if target_race is not None:
-        # Cerchiamo l'indice confrontando come stringhe per sicurezza
         for i, g in enumerate(gare):
             if str(g['id_race']) == str(target_race):
                 idx_g = i
@@ -44,7 +58,6 @@ with col_f1:
     sel_gara = st.selectbox("Seleziona Gara", gare, index=idx_g, format_func=lambda x: x['name'])
 
 with col_f2:
-    # Carichiamo le tappe della gara selezionata
     tappe = supabase.table("dim_race_stage").select("id_stage, id_stage_number").eq("id_race", sel_gara['id_race']).order("id_stage_number").execute().data
     
     idx_t = 0
@@ -96,9 +109,8 @@ if res.data:
 else:
     st.info("Nessun dato disponibile per questa selezione.")
 
-# --- 4. CANCELLAZIONE SOLO A FINE SCRIPT ---
-# Spostando questo qui, siamo sicuri che i widget abbiano finito di leggere
-if target_race is not None:
+# --- 4. CANCELLAZIONE PARAMETRI DI NAVIGAZIONE ---
+if 'gara_selezionata_id' in st.session_state:
     del st.session_state['gara_selezionata_id']
-if target_stage is not None:
+if 'tappa_selezionata_id' in st.session_state:
     del st.session_state['tappa_selezionata_id']
