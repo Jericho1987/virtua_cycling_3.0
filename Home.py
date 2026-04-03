@@ -157,7 +157,11 @@ try:
         if l_d:
             for l in l_d:
                 st.markdown(f"✅ {l['race_name']}")
-            st.button("VEDI TUTTE LE CLASSIFICHE 🏆", use_container_width=True, type="primary", on_click=lambda: st.switch_page("pages/02_Classifiche.py"))
+            # Bottone reso uniforme agli altri (rimosso type="primary" e maiuscolo eccessivo)
+            col_u_txt, col_u_btn = st.columns([0.8, 0.2])
+            col_u_txt.markdown("<div style='display: flex; align-items: center; min-height: 45px;'>Visualizza classifiche</div>", unsafe_allow_html=True)
+            if col_u_btn.button("Vai", key="btn_classifiche_home", use_container_width=True):
+                st.switch_page("pages/02_Classifiche.py")
         else:
             st.info("In attesa di risultati.")
 
@@ -183,7 +187,6 @@ try:
     with st.container(border=True):
         if u_d:
             for u in u_d:
-                # Recupero e formattazione della data
                 data_str = ""
                 if u.get('stage_date'):
                     try:
@@ -192,10 +195,10 @@ try:
                     except:
                         data_str = str(u['stage_date'])
                 
-                # Logica Condizionale Nome Gara (Tappa solo se id_type_race != 3)
                 nome_prossima = u['race_name']
+                # Modificato per mostrare "Tappa" per esteso invece di "T"
                 if u.get('id_type_race') != 3 and u.get('stage'):
-                    nome_prossima = f"{u['race_name']} Tappa {u['stage']}"
+                    nome_prossima = f"{u['race_name']} (Tappa {u['stage']})"
                 
                 label_data = f"<span style='color: #ff4b4b; font-weight: bold; margin-right: 10px;'>{data_str}</span>" if data_str else ""
                 st.markdown(f"<div style='margin-bottom: 8px;'>{label_data} {nome_prossima}</div>", unsafe_allow_html=True)
