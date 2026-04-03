@@ -21,7 +21,7 @@ key = st.secrets["SUPABASE_KEY"]
 supabase = create_client(url, key)
 
 st.title("📅 Gestione Palinsesto Gare")
-st.markdown("Modifica date, orari e tipologie in formato griglia compatta.")
+st.markdown("Modifica date, orari e tipologie. Verranno salvate solo le celle modificate.")
 
 # --- 4. CARICAMENTO DATI ---
 @st.cache_data(ttl=5) 
@@ -39,18 +39,13 @@ try:
         st.info("Nessuna tappa trovata.")
         st.stop()
 
-    # Merge per avere i nomi delle gare
+    # Merge e Mappatura
     df_display = df_stages.merge(df_races, on="id_race")
-    
-    # Mappa dei tipi tappa
     type_map = dict(zip(df_types['id_stage_type'], df_types['description']))
     df_display['Tipo Tappa'] = df_display['id_stage_type'].map(type_map)
 
-    # --- TRASFORMAZIONE DATI PER COMPATIBILITÀ EDITING ---
-    # Convertiamo la stringa "YYYY-MM-DD" in oggetto Date di Python
+    # Conversione formati per Streamlit
     df_display['stage_date'] = pd.to_datetime(df_display['stage_date']).dt.date
-    
-    # Convertiamo la stringa "HH:MM:SS" in oggetto Time di Python
     df_display['stage_time'] = pd.to_datetime(df_display['stage_time'], format='%H:%M:%S').dt.time
 
     # --- 5. FILTRI ---
@@ -60,13 +55,15 @@ try:
     if sel_race != "Tutte":
         df_display = df_display[df_display['name'] == sel_race]
 
+    # Prepariamo il DF per la griglia
     df_grid = df_display[[
         'id_stage', 'name', 'id_stage_number', 'stage_date', 'stage_time', 'Tipo Tappa'
-    ]].copy()
+    ]].copy().reset_index(drop=True)
 
     # --- 6. GRIGLIA EDITABILE ---
     st.write("### Griglia Modificabile")
     
+    # Usiamo un key specifica per accedere ai cambiamenti tramite session_state
     edited_df = st.data_editor(
         df_grid,
         column_config={
@@ -83,33 +80,55 @@ try:
         },
         hide_index=True,
         use_container_width=True,
-        key="stage_editor_v2"
+        key="stage_editor"
     )
 
-    # --- 7. LOGICA DI SALVATAGGIO ---
+    # --- 7. LOGICA DI SALVATAGGIO OTTIMIZZATA ---
     st.divider()
-    if st.button("💾 Salva Tutte le Modifiche", type="primary"):
-        inv_type_map = {v: k for k, v in type_map.items()}
-        
-        success_count = 0
-        with st.spinner("Salvataggio..."):
-            for index, row in edited_df.iterrows():
-                update_payload = {
-                    "stage_date": row['stage_date'].isoformat(), # Torna stringa per il DB
-                    "stage_time": row['stage_time'].strftime('%H:%M:%S'), # Torna stringa per il DB
-                    "id_stage_type": inv_type_map[row['Tipo Tappa']]
-                }
-                
-                supabase.table("dim_race_stage")\
-                    .update(update_payload)\
-                    .eq("id_stage", row['id_stage'])\
-                    .execute()
-                success_count += 1
+    
+    if st.button("💾 Salva solo modifiche", type="primary"):
+        # Recuperiamo solo i dizionari delle righe toccate
+        # Formato: { "indice_riga": { "colonna_modificata": "nuovo_valore" } }
+        changes = st.session_state["stage_editor"].get("edited_rows", {})
 
-        if success_count > 0:
-            st.success(f"✅ Aggiornate {success_count} tappe!")
-            st.cache_data.clear()
-            st.rerun()
+        if not changes:
+            st.info("Nessuna modifica rilevata.")
+        else:
+            inv_type_map = {v: k for k, v in type_map.items()}
+            success_count = 0
+            
+            with st.spinner(f"Salvataggio di {len(changes)} tappe..."):
+                for row_idx_str, updated_values in changes.items():
+                    row_idx = int(row_idx_str)
+                    # Recuperiamo l'ID del record usando l'indice della riga originale
+                    id_stage = df_grid.iloc[row_idx]['id_stage']
+                    
+                    # Costruiamo il payload solo con quello che è cambiato
+                    update_payload = {}
+                    if 'stage_date' in updated_values:
+                        update_payload["stage_date"] = updated_values['stage_date']
+                    if 'stage_time' in updated_values:
+                        # Assicuriamoci che sia stringa HH:MM:SS
+                        val_time = updated_values['stage_time']
+                        update_payload["stage_time"] = val_time.strftime('%H:%M:%S') if hasattr(val_time, 'strftime') else val_time
+                    if 'Tipo Tappa' in updated_values:
+                        update_payload["id_stage_type"] = inv_type_map[updated_values['Tipo Tappa']]
+
+                    # Eseguiamo l'update solo se ci sono dati nel payload
+                    if update_payload:
+                        try:
+                            supabase.table("dim_race_stage")\
+                                .update(update_payload)\
+                                .eq("id_stage", id_stage)\
+                                .execute()
+                            success_count += 1
+                        except Exception as e:
+                            st.error(f"Errore durante l'aggiornamento della riga {row_idx}: {e}")
+
+            if success_count > 0:
+                st.success(f"✅ Aggiornate con successo {success_count} tappe!")
+                st.cache_data.clear()
+                st.rerun()
 
 except Exception as e:
     st.error(f"Errore tecnico: {e}")
