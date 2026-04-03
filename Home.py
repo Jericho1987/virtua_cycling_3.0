@@ -166,7 +166,18 @@ try:
     with st.container(border=True):
         if c_d:
             for c in c_d:
-                st.markdown(f"🚴‍♂️ **{c['race_name']}** (Tappa {c['stage']})")
+                # Modifica 1: Nome senza tappa se id_type_race è 3
+                nome_live = c['race_name'] if c.get('id_type_race') == 3 else f"{c['race_name']} (Tappa {c['stage']})"
+                
+                # Modifica 2: Aggiunta bottone "Vai" con logica reindirizzamento
+                col_txt_c, col_btn_c = st.columns([0.8, 0.2])
+                col_txt_c.markdown(f"<div style='display: flex; align-items: center; min-height: 45px;'>🚴‍♂️ <b>{nome_live}</b></div>", unsafe_allow_html=True)
+                
+                if col_btn_c.button("Vai", key=f"c_{c['id_stage']}", use_container_width=True):
+                    st.session_state.gara_selezionata_id = c['id_race']
+                    st.session_state.tappa_selezionata_id = c['id_stage']
+                    st.switch_page("pages/01_Inserimento.py")
+                st.markdown("<hr>", unsafe_allow_html=True)
         else:
             st.info("Nessuna gara live in questo momento.")
 
