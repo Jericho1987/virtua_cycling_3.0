@@ -80,10 +80,12 @@ else:
 if sel_tappa['id_stage'] in current_ids:
     st.info(f"🚀 Formazioni schierate per: **{sel_tappa['race_name']}**")
     
-    # Query alla vista corretta: view_user_pick_race
+    # Query alla vista: view_user_pick_race con ORDINAMENTO
     res_global = supabase.table("view_user_pick_race")\
         .select("display_name, rider_name_short, id_slot")\
-        .eq("id_stage", sel_tappa['id_stage']).execute()
+        .eq("id_stage", sel_tappa['id_stage'])\
+        .order("display_name")\
+        .execute()
     
     if res_global.data:
         df_raw = pd.DataFrame(res_global.data)
