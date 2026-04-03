@@ -2,9 +2,14 @@ import streamlit as st
 from supabase import create_client
 from auth_utils import check_auth, render_sidebar
 from datetime import datetime, date, time, timedelta
+import extra_streamlit_components as stx
+import time as time_lib
 
 # 1. Configurazione pagina
 st.set_page_config(page_title="Virtua Cycling - Home", layout="wide", page_icon="🚴‍♂️")
+
+# --- INIZIALIZZAZIONE COOKIE MANAGER ---
+cookie_manager = stx.CookieManager()
 
 # --- CSS PER MOBILE E HEADER ---
 st.markdown("""
@@ -28,22 +33,33 @@ url = st.secrets["SUPABASE_URL"]
 key = st.secrets["SUPABASE_KEY"]
 supabase = create_client(url, key)
 
-# --- LOGICA DI SESSIONE E LOGIN ---
+# --- LOGICA DI SESSIONE E RECUPERO AUTOMATICO ---
 if 'id_user_loggato' not in st.session_state:
     st.session_state.id_user_loggato = None
 
+# Se non loggato in sessione, prova a recuperare dal cookie
 if st.session_state.id_user_loggato is None:
-    try:
-        res_session = supabase.auth.get_session()
-        if res_session and res_session.user:
-            u_id = res_session.user.id
-            u_info = supabase.table("dim_user").select("nickname, is_admin").eq("id_user", u_id).single().execute()
-            st.session_state.id_user_loggato = u_id
-            st.session_state.nome_user_loggato = u_info.data['nickname']
-            st.session_state.is_admin = u_info.data.get('is_admin', False)
-    except:
-        pass
+    saved_token = cookie_manager.get(cookie="supabase_refresh_token")
+    if saved_token:
+        try:
+            # Tenta il ripristino della sessione tramite refresh token
+            res_session = supabase.auth.refresh_session(saved_token)
+            if res_session and res_session.user:
+                u_id = res_session.user.id
+                u_info = supabase.table("dim_user").select("nickname, is_admin").eq("id_user", u_id).single().execute()
+                
+                st.session_state.id_user_loggato = u_id
+                st.session_state.nome_user_loggato = u_info.data['nickname']
+                st.session_state.is_admin = u_info.data.get('is_admin', False)
+                
+                # Aggiorna il cookie per estendere la durata (30 giorni)
+                cookie_manager.set("supabase_refresh_token", res_session.session.refresh_token, 
+                                 expires_at=time_lib.time() + (30 * 24 * 3600))
+                st.rerun()
+        except:
+            pass
 
+# Se ancora non loggato, mostra il form di Login/Registrazione
 if st.session_state.id_user_loggato is None:
     st.markdown("<style>[data-testid='stSidebar'], [data-testid='stSidebarCollapsedControl'] { display: none !important; } .stTabs [data-baseweb='tab-list'] { justify-content: center; }</style>", unsafe_allow_html=True)
     _, col_login, _ = st.columns([1, 1.2, 1])
@@ -60,6 +76,10 @@ if st.session_state.id_user_loggato is None:
                     try:
                         res = supabase.auth.sign_in_with_password({"email": e_in, "password": p_in})
                         if res.user:
+                            # SALVATAGGIO COOKIE
+                            cookie_manager.set("supabase_refresh_token", res.session.refresh_token, 
+                                             expires_at=time_lib.time() + (30 * 24 * 3600))
+                            
                             u_id = res.user.id
                             u_info = supabase.table("dim_user").select("nickname, is_admin").eq("id_user", u_id).single().execute()
                             st.session_state.id_user_loggato = u_id
@@ -83,7 +103,7 @@ if st.session_state.id_user_loggato is None:
                         st.error(f"Errore: {e}")
     st.stop()
 
-# --- DASHBOARD UTENTE ---
+# --- DASHBOARD UTENTE (ESECUTO SOLO SE LOGGATO) ---
 check_auth()
 render_sidebar()
 
@@ -176,7 +196,6 @@ try:
                 col_l_txt, col_l_btn = st.columns([0.8, 0.2])
                 col_l_txt.markdown(f"<div style='display: flex; align-items: center; min-height: 45px;'>✅ <b>{l['race_name']}</b></div>", unsafe_allow_html=True)
                 
-                # Ora passiamo id_race e id_stage che abbiamo aggiunto alla view
                 if col_l_btn.button("Vai", key=f"l_{l['id_stage']}", use_container_width=True):
                     st.session_state.gara_selezionata_id = l['id_race']
                     st.session_state.tappa_selezionata_id = l['id_stage']
