@@ -16,21 +16,23 @@ def check_auth():
         
         * { font-family: 'Inter', sans-serif; }
 
-        /* 1. NASCONDE HEADER COMPLETAMENTE */
-        header, [data-testid="stHeader"] {
-            display: none !important;
-            height: 0 !important;
-            width: 0 !important;
-            overflow: hidden !important;
+        /* 1. NASCONDE L'ESTETICA DELL'HEADER MA MANTIENE IL TASTO MENU (HAMBURGER) */
+        header[data-testid="stHeader"] {
+            background-color: rgba(0,0,0,0) !important;
+            border: none !important;
         }
-
-        /* 2. NASCONDE FOOTER E DECORAZIONI */
-        footer, [data-testid="stDecoration"] {
+        
+        /* Nasconde la linea colorata superiore */
+        [data-testid="stDecoration"] {
             display: none !important;
         }
 
-        /* 3. NASCONDE PULSANTI FLOATING E BADGE (TENTATIVO DEFINITIVO) */
-        /* Colpiamo i contenitori fissi in basso a destra */
+        /* 2. NASCONDE FOOTER */
+        footer {
+            display: none !important;
+        }
+
+        /* 3. NASCONDE PULSANTI FLOATING E BADGE */
         .stAppDeployButton, 
         [data-testid="stStatusWidget"],
         [data-testid="stStatusWidget"] div,
