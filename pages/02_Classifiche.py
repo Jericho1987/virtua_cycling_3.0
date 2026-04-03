@@ -24,9 +24,8 @@ target_race = st.session_state.get('gara_selezionata_id')
 target_stage = st.session_state.get('tappa_selezionata_id')
 
 if target_race is None or target_stage is None:
-    # Aggiunto id_type_race alla select per capire subito il tipo di gara
     last_data_query = supabase.table("view_simulazione_punti")\
-        .select("id_stage, id_type_race")\
+        .select("id_stage")\
         .order("id_stage", desc=True)\
         .limit(1)\
         .execute()
@@ -45,7 +44,7 @@ if target_race is None or target_stage is None:
 col_f1, col_f2 = st.columns(2)
 
 with col_f1:
-    # Recuperiamo anche id_type_race per gestire la logica UI
+    # Recuperiamo id_type_race per la logica condizionale
     gare = supabase.table("dim_race").select("id_race, name, id_type_race").execute().data
     
     idx_g = 0
@@ -57,22 +56,20 @@ with col_f1:
     
     sel_gara = st.selectbox("Seleziona Gara", gare, index=idx_g, format_func=lambda x: x['name'])
 
-# --- LOGICA ID_TYPE_RACE == 3 ---
+# Controllo se è One Day Race
 is_one_day_race = sel_gara.get('id_type_race') == 3
 
 with col_f2:
     if is_one_day_race:
-        # Se è una gara di un giorno, recuperiamo comunque l'id_stage (che sarà unico) 
-        # ma non mostriamo il selectbox all'utente
+        # Recupera silenziosamente l'id dello stage senza mostrare widget
         tappa_data = supabase.table("dim_race_stage")\
             .select("id_stage, id_stage_number")\
             .eq("id_race", sel_gara['id_race'])\
             .limit(1)\
             .execute().data
         sel_tappa = tappa_data[0] if tappa_data else None
-        st.info("🏃 Gara in linea (One Day Race)")
     else:
-        # Logica standard per corse a tappe
+        # Mostra il selectbox solo per corse a tappe
         tappe = supabase.table("dim_race_stage").select("id_stage, id_stage_number").eq("id_race", sel_gara['id_race']).order("id_stage_number").execute().data
         
         idx_t = 0
@@ -109,13 +106,13 @@ if sel_tappa:
 
         st.write("") 
 
-        # --- IL TABELLONE (Titolo condizionale) ---
+        # --- IL TABELLONE (Titolo Dinamico) ---
         if is_one_day_race:
-            titolo_classifica = f"{sel_gara['name']} - One Day Race"
+            titolo_tabellone = f"{sel_gara['name']} - One Day Race"
         else:
-            titolo_classifica = f"Classifica: {sel_gara['name']} - T{sel_tappa['id_stage_number']}"
+            titolo_tabellone = f"Classifica: {sel_gara['name']} - T{sel_tappa['id_stage_number']}"
             
-        st.subheader(titolo_classifica)
+        st.subheader(titolo_tabellone)
         
         def make_pretty_pos(pos):
             icons = {1: "🥇", 2: "🥈", 3: "🥉"}
