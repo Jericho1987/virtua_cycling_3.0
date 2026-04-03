@@ -20,12 +20,13 @@ key = st.secrets["SUPABASE_KEY"]
 supabase = create_client(url, key)
 
 st.title("🚴‍♂️ Gestione Team (UCI)")
-st.markdown("Modifica i dettagli dei team ufficiali. Gli aggiornamenti verranno salvati solo per le righe modificate.")
+st.markdown("Modifica i dettagli dei team. Ordinati per Codice UCI.")
 
 # --- 4. CARICAMENTO DATI ---
 @st.cache_data(ttl=10)
 def get_team_data():
-    res = supabase.table("dim_team").select("*").order("name").execute()
+    # Ordiniamo direttamente dalla query per codice UCI
+    res = supabase.table("dim_team").select("*").order("uci_code").execute()
     return pd.DataFrame(res.data)
 
 try:
@@ -35,9 +36,9 @@ try:
         st.info("Nessun team in database.")
         st.stop()
 
-    # Prepariamo il DF per la griglia (riordiniamo le colonne per chiarezza)
+    # Prepariamo il DF (teniamo id_team solo per l'aggiornamento, ma lo nascondiamo)
     df_grid = df_teams[[
-        'id_team', 'uci_code', 'name', 'short_txt', 'updated_at'
+        'id_team', 'uci_code', 'name', 'short_txt'
     ]].copy()
 
     # --- 5. INTESTAZIONE E BOTTONE ---
@@ -53,11 +54,11 @@ try:
     edited_df = st.data_editor(
         df_grid,
         column_config={
-            "id_team": st.column_config.NumberColumn("ID", disabled=True),
-            "uci_code": st.column_config.TextColumn("Codice UCI (3 lettere)", max_chars=3, required=True),
-            "name": st.column_config.TextColumn("Nome Team Full", required=True),
-            "short_txt": st.column_config.TextColumn("Nome Breve / Abbr."),
-            "updated_at": st.column_config.DatetimeColumn("Ultimo Update", disabled=True, format="DD/MM/YYYY HH:mm"),
+            # Nascondiamo l'ID impostandolo a None
+            "id_team": None, 
+            "uci_code": st.column_config.TextColumn("Codice UCI", max_chars=3, required=True),
+            "name": st.column_config.TextColumn("Nome Team", required=True),
+            "short_txt": st.column_config.TextColumn("Abbreviazione"),
         },
         hide_index=True,
         use_container_width=True,
@@ -66,21 +67,19 @@ try:
 
     # --- 7. LOGICA DI SALVATAGGIO ---
     if save_clicked:
-        # Recupera solo i cambiamenti dal session_state del data_editor
         changes = st.session_state["team_editor"].get("edited_rows", {})
 
         if not changes:
             st.info("Nessuna modifica rilevata.")
         else:
             success_count = 0
-            with st.spinner("Salvataggio team in corso..."):
+            with st.spinner("Aggiornamento in corso..."):
                 for row_idx_str, updated_values in changes.items():
                     row_idx = int(row_idx_str)
-                    # Recuperiamo l'ID reale usando l'indice della riga
+                    # L'ID rimane accessibile nel dataframe originale anche se nascosto nella griglia
                     real_id = df_grid.iloc[row_idx]['id_team']
                     
-                    # Eseguiamo l'update su Supabase
-                    if updated_values: # Se il dizionario non è vuoto
+                    if updated_values:
                         try:
                             supabase.table("dim_team")\
                                 .update(updated_values)\
@@ -88,11 +87,11 @@ try:
                                 .execute()
                             success_count += 1
                         except Exception as e:
-                            st.error(f"Errore sull'ID {real_id}: {e}")
+                            st.error(f"Errore sull'aggiornamento: {e}")
 
             if success_count > 0:
-                st.success(f"✅ Aggiornati {success_count} team con successo!")
-                st.cache_data.clear() # Svuota la cache per ricaricare i dati freschi
+                st.success(f"✅ Aggiornati {success_count} team!")
+                st.cache_data.clear()
                 st.rerun()
 
 except Exception as e:
