@@ -62,7 +62,6 @@ if st.session_state.id_user_loggato is None:
                         if res.user:
                             u_id = res.user.id
                             u_info = supabase.table("dim_user").select("nickname, is_admin").eq("id_user", u_id).single().execute()
-                            # Salvataggio immediato in session_state prima del rerun
                             st.session_state.id_user_loggato = u_id
                             st.session_state.nome_user_loggato = u_info.data['nickname']
                             st.session_state.is_admin = u_info.data.get('is_admin', False)
@@ -86,6 +85,15 @@ if st.session_state.id_user_loggato is None:
 # --- DASHBOARD UTENTE ---
 check_auth()
 render_sidebar()
+
+# MODIFICA: Forziamo il ripristino dell'hamburger button e della sidebar dopo il login
+st.markdown("""
+    <style>
+        [data-testid="stSidebar"], [data-testid="stSidebarCollapsedControl"] { 
+            display: flex !important; 
+        }
+    </style>
+""", unsafe_allow_html=True)
 
 logo = "https://github.com/Jericho1987/virtua_cycling_3.0/blob/main/logo_pwa.png?raw=true"
 st.markdown(f"""
@@ -134,43 +142,4 @@ try:
                         '''
                 except: pass
 
-                col_txt, col_btn = st.columns([0.8, 0.2])
-                col_txt.markdown(f"<div style='display: flex; align-items: center; min-height: 45px;'><b>{nome_mostrato}</b>{countdown_html}</div>", unsafe_allow_html=True)
-                if col_btn.button("Vai", key=f"p_{p['id_stage']}", use_container_width=True):
-                    st.session_state.gara_selezionata_id = p['id_race']
-                    st.session_state.tappa_selezionata_id = p['id_stage']
-                    st.switch_page("pages/01_Inserimento.py")
-                st.markdown("<hr>", unsafe_allow_html=True)
-        else:
-            st.success("Tutti i pick sono completi ✅")
-
-    # --- 2. SEZIONE ULTIMI RISULTATI (FULL WIDTH) ---
-    st.markdown('<div class="section-title">🏆 Ultimi risultati</div>', unsafe_allow_html=True)
-    with st.container(border=True):
-        if l_d:
-            for l in l_d:
-                st.markdown(f"✅ {l['race_name']}")
-            st.button("VEDI TUTTE LE CLASSIFICHE 🏆", use_container_width=True, type="primary", on_click=lambda: st.switch_page("pages/02_Classifiche.py"))
-        else:
-            st.info("In attesa di risultati.")
-
-    # --- 3. SEZIONE IN CORSO (FULL WIDTH) ---
-    st.markdown('<div class="section-title">🏁 In corso</div>', unsafe_allow_html=True)
-    with st.container(border=True):
-        if c_d:
-            for c in c_d:
-                st.markdown(f"🚴‍♂️ **{c['race_name']}** (Tappa {c['stage']})")
-        else:
-            st.info("Nessuna gara live in questo momento.")
-
-    # --- 4. SEZIONE PROSSIME GARE (FULL WIDTH) ---
-    st.markdown('<div class="section-title">📅 Prossime gare</div>', unsafe_allow_html=True)
-    with st.container(border=True):
-        if u_d:
-            for u in u_d:
-                st.markdown(f"📅 {u['race_name']}")
-        else:
-            st.write("Nessuna gara in programma a breve.")
-
-except Exception as e:
-    st.error(f"Errore nel caricamento dati: {e}")
+                col_txt,
