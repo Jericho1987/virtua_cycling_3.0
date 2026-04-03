@@ -131,4 +131,76 @@ try:
                         bg_panel = "#0e1117"
                         countdown_html = f'''
                             <div style="display: flex; align-items: center; gap: 4px; font-family: 'Courier New', monospace; font-weight: bold; margin-left: 12px; transform: scale(0.95); transform-origin: left center;">
-                                <span style="color: #606060; font-size: 0.
+                                <span style="color: #606060; font-size: 0.7rem; margin-right: 2px;">⏳</span>
+                                {'<div style="background-color: '+bg_panel+'; color: '+color_num+'; padding: 3px 6px; border-radius: 4px; border: 1px solid #333;">'+f"{giorni:02d}"+'<span style="font-size: 0.6rem; color: #606060; margin-left: 1px;">d</span></div>' if giorni > 0 else ''}
+                                <div style="background-color: {bg_panel}; color: {color_num}; padding: 3px 6px; border-radius: 4px; border: 1px solid #333;">{ore:02d}<span style="font-size: 0.6rem; color: #606060; margin-left: 1px;">h</span></div>
+                                <span style="color: #333; font-size: 1rem;">:</span>
+                                <div style="background-color: {bg_panel}; color: {color_num}; padding: 3px 6px; border-radius: 4px; border: 1px solid #333;">{minuti:02d}<span style="font-size: 0.6rem; color: #606060; margin-left: 1px;">m</span></div>
+                            </div>
+                        '''
+                except:
+                    pass
+
+                col_txt, col_btn = st.columns([0.8, 0.2])
+                col_txt.markdown(f"<div style='display: flex; align-items: center; min-height: 45px;'><b>{nome_mostrato}</b>{countdown_html}</div>", unsafe_allow_html=True)
+                if col_btn.button("Vai", key=f"p_{p['id_stage']}", use_container_width=True):
+                    st.session_state.gara_selezionata_id = p['id_race']
+                    st.session_state.tappa_selezionata_id = p['id_stage']
+                    st.switch_page("pages/01_Inserimento.py")
+                st.markdown("<hr>", unsafe_allow_html=True)
+        else:
+            st.success("Tutti i pick sono completi ✅")
+
+    # --- 2. SEZIONE ULTIMI RISULTATI ---
+    st.markdown('<div class="section-title">🏆 Ultimi risultati</div>', unsafe_allow_html=True)
+    with st.container(border=True):
+        if l_d:
+            for l in l_d:
+                st.markdown(f"✅ {l['race_name']}")
+            st.button("VEDI TUTTE LE CLASSIFICHE 🏆", use_container_width=True, type="primary", on_click=lambda: st.switch_page("pages/02_Classifiche.py"))
+        else:
+            st.info("In attesa di risultati.")
+
+    # --- 3. SEZIONE IN CORSO ---
+    st.markdown('<div class="section-title">🏁 In corso</div>', unsafe_allow_html=True)
+    with st.container(border=True):
+        if c_d:
+            for c in c_d:
+                nome_live = c['race_name'] if c.get('id_type_race') == 3 else f"{c['race_name']} (Tappa {c['stage']})"
+                col_txt_c, col_btn_c = st.columns([0.8, 0.2])
+                col_txt_c.markdown(f"<div style='display: flex; align-items: center; min-height: 45px;'>🚴‍♂️ <b>{nome_live}</b></div>", unsafe_allow_html=True)
+                
+                if col_btn_c.button("Vai", key=f"c_{c['id_stage']}", use_container_width=True):
+                    st.session_state.gara_selezionata_id = c['id_race']
+                    st.session_state.tappa_selezionata_id = c['id_stage']
+                    st.switch_page("pages/01_Inserimento.py")
+                st.markdown("<hr>", unsafe_allow_html=True)
+        else:
+            st.info("Nessuna gara live in questo momento.")
+
+    # --- 4. SEZIONE PROSSIME GARE ---
+    st.markdown('<div class="section-title">📅 Prossime gare</div>', unsafe_allow_html=True)
+    with st.container(border=True):
+        if u_d:
+            for u in u_d:
+                # Recupero e formattazione della data
+                data_str = ""
+                if u.get('stage_date'):
+                    try:
+                        dt = datetime.fromisoformat(str(u['stage_date']))
+                        data_str = dt.strftime("%d/%m")
+                    except:
+                        data_str = str(u['stage_date'])
+                
+                # Logica Condizionale Nome Gara (Tappa solo se id_type_race != 3)
+                nome_prossima = u['race_name']
+                if u.get('id_type_race') != 3 and u.get('stage'):
+                    nome_prossima = f"{u['race_name']} (T{u['stage']})"
+                
+                label_data = f"<span style='color: #ff4b4b; font-weight: bold; margin-right: 10px;'>{data_str}</span>" if data_str else ""
+                st.markdown(f"<div style='margin-bottom: 8px;'>{label_data} {nome_prossima}</div>", unsafe_allow_html=True)
+        else:
+            st.write("Nessuna gara in programma a breve.")
+
+except Exception as e:
+    st.error(f"Errore nel caricamento dati: {e}")
