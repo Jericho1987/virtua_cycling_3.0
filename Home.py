@@ -95,7 +95,7 @@ if st.session_state.just_logged:
 
 # --- DASHBOARD UTENTE ---
 check_auth()
-render_sidebar(supabase)
+render_sidebar()
 
 # Forza sidebar mobile
 st.markdown("""
