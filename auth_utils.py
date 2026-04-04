@@ -2,6 +2,7 @@ import streamlit as st
 import extra_streamlit_components as stx
 from datetime import datetime, timedelta
 
+@st.cache_resource
 def get_cookie_manager():
     return stx.CookieManager(key="virtua_cookie_manager")
 
