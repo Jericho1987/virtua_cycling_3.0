@@ -1,6 +1,5 @@
 import streamlit as st
 import uuid
-from datetime import datetime, timedelta
 
 def generate_token():
     return str(uuid.uuid4())
@@ -10,6 +9,7 @@ def save_session_to_cookie(supabase, user_id, nickname, is_admin):
         token = generate_token()
         supabase.table("dim_user").update({"session_token": token}).eq("id_user", user_id).execute()
         st.query_params["token"] = token
+        st.session_state._session_token = token
         st.session_state.id_user_loggato = user_id
         st.session_state.nome_user_loggato = nickname
         st.session_state.is_admin = is_admin
@@ -23,6 +23,8 @@ def restore_session_from_cookie(supabase):
     try:
         token = st.query_params.get("token")
         if not token:
+            token = st.session_state.get("_session_token")
+        if not token:
             return False
         
         res = supabase.table("dim_user").select("id_user, nickname, is_admin").eq("session_token", token).single().execute()
@@ -30,6 +32,7 @@ def restore_session_from_cookie(supabase):
             st.session_state.id_user_loggato = res.data["id_user"]
             st.session_state.nome_user_loggato = res.data["nickname"]
             st.session_state.is_admin = res.data.get("is_admin", False)
+            st.session_state._session_token = token
             return True
     except Exception:
         pass
