@@ -4,7 +4,6 @@ from auth_utils import check_auth, render_sidebar, init_cookies, restore_session
 from datetime import datetime
 
 # --- INIT COOKIE (DEVE STARE PRIMA DI set_page_config) ---
-cookies = init_cookies()
 
 # 1. Configurazione pagina
 st.set_page_config(page_title="Virtua Cycling - Home", layout="wide", page_icon="🚴‍♂️")
