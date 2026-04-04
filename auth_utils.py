@@ -1,41 +1,51 @@
 import streamlit as st
-from streamlit_cookies_manager import EncryptedCookieManager
+import extra_streamlit_components as stx
+from datetime import datetime, timedelta
 
-cookies = EncryptedCookieManager(prefix="virtua_", password="dev_secret_key_123")
+def get_cookie_manager():
+    return stx.CookieManager(key="virtua_cookie_manager")
 
 def init_cookies():
-    if not cookies.ready():
-        st.markdown("⏳ Caricamento...")
-        st.stop()
-    return cookies
+    return get_cookie_manager()
 
 def restore_session_from_cookie(supabase):
     if st.session_state.get("id_user_loggato"):
         return True
     
-    saved_user_id = cookies.get("user_id")
-    saved_nickname = cookies.get("nickname")
-    saved_is_admin = cookies.get("is_admin")
+    try:
+        cm = get_cookie_manager()
+        saved_user_id = cm.get("user_id")
+        saved_nickname = cm.get("nickname")
+        saved_is_admin = cm.get("is_admin")
 
-    if saved_user_id and saved_nickname:
-        st.session_state.id_user_loggato = saved_user_id
-        st.session_state.nome_user_loggato = saved_nickname
-        st.session_state.is_admin = saved_is_admin == "True"
-        return True
+        if saved_user_id and saved_nickname:
+            st.session_state.id_user_loggato = saved_user_id
+            st.session_state.nome_user_loggato = saved_nickname
+            st.session_state.is_admin = saved_is_admin == "True"
+            return True
+    except Exception:
+        pass
     
     return False
 
 def save_session_to_cookie(user_id, nickname, is_admin):
-    cookies["user_id"] = user_id
-    cookies["nickname"] = nickname
-    cookies["is_admin"] = str(is_admin)
-    cookies.save()
+    try:
+        cm = get_cookie_manager()
+        expiry = datetime.now() + timedelta(days=30)
+        cm.set("user_id", user_id, expires_at=expiry)
+        cm.set("nickname", nickname, expires_at=expiry)
+        cm.set("is_admin", str(is_admin), expires_at=expiry)
+    except Exception:
+        pass
 
 def clear_session_cookie():
-    cookies["user_id"] = ""
-    cookies["nickname"] = ""
-    cookies["is_admin"] = ""
-    cookies.save()
+    try:
+        cm = get_cookie_manager()
+        cm.delete("user_id")
+        cm.delete("nickname")
+        cm.delete("is_admin")
+    except Exception:
+        pass
 
 def check_auth():
     if 'id_user_loggato' not in st.session_state or st.session_state.id_user_loggato is None:
