@@ -7,7 +7,6 @@ import pandas as pd
 st.set_page_config(page_title="Inserimento Formazione", layout="wide", page_icon="📝")
 
 # --- RIPRISTINO SESSIONE DA COOKIE ---
-cookies = init_cookies()
 url = st.secrets["SUPABASE_URL"]
 key = st.secrets["SUPABASE_KEY"]
 supabase = create_client(url, key)
