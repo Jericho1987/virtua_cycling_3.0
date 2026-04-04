@@ -1,8 +1,27 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import uuid
 
 def generate_token():
     return str(uuid.uuid4())
+
+def inject_token_persistence():
+    """Salva il token nel localStorage e lo rilegge ad ogni caricamento."""
+    token = st.session_state.get("_session_token", "")
+    components.html(f"""
+        <script>
+            const token = "{token}";
+            if (token) {{
+                localStorage.setItem('virtua_token', token);
+            }}
+            const saved = localStorage.getItem('virtua_token');
+            if (saved && !window.location.search.includes('token=')) {{
+                const url = new URL(window.location.href);
+                url.searchParams.set('token', saved);
+                window.location.replace(url.toString());
+            }}
+        </script>
+    """, height=0)
 
 def save_session_to_cookie(supabase, user_id, nickname, is_admin):
     try:
@@ -45,6 +64,11 @@ def clear_session_cookie(supabase=None):
         if user_id and supabase:
             supabase.table("dim_user").update({"session_token": None}).eq("id_user", user_id).execute()
         st.query_params.clear()
+        components.html("""
+            <script>
+                localStorage.removeItem('virtua_token');
+            </script>
+        """, height=0)
     except Exception:
         pass
 
