@@ -36,10 +36,10 @@ def restore_session_from_cookie(supabase):
     
     return False
 
-def clear_session_cookie(supabase):
+def clear_session_cookie(supabase=None):
     try:
         user_id = st.session_state.get("id_user_loggato")
-        if user_id:
+        if user_id and supabase:
             supabase.table("dim_user").update({"session_token": None}).eq("id_user", user_id).execute()
         st.query_params.clear()
     except Exception:
@@ -115,6 +115,12 @@ def check_auth():
 
 
 def render_sidebar():
+    from supabase import create_client
+    try:
+        supabase = create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
+    except:
+        supabase = None
+
     with st.sidebar:
         st.page_link("Home.py", label="Home", icon="🏠")
         st.page_link("pages/01_Inserimento.py", label="Pick", icon="✍️")
