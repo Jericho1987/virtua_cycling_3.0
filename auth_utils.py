@@ -1,66 +1,65 @@
 import streamlit as st
+from streamlit_cookies_manager import EncryptedCookieManager
+
+cookies = EncryptedCookieManager(prefix="virtua_", password="dev_secret_key_123")
+
+def init_cookies():
+    if not cookies.ready():
+        st.stop()
+    return cookies
+
+def restore_session_from_cookie(supabase):
+    if st.session_state.get("id_user_loggato"):
+        return True
+    
+    saved_user_id = cookies.get("user_id")
+    saved_nickname = cookies.get("nickname")
+    saved_is_admin = cookies.get("is_admin")
+
+    if saved_user_id and saved_nickname:
+        st.session_state.id_user_loggato = saved_user_id
+        st.session_state.nome_user_loggato = saved_nickname
+        st.session_state.is_admin = saved_is_admin == "True"
+        return True
+    
+    return False
+
+def save_session_to_cookie(user_id, nickname, is_admin):
+    cookies["user_id"] = user_id
+    cookies["nickname"] = nickname
+    cookies["is_admin"] = str(is_admin)
+    cookies.save()
+
+def clear_session_cookie():
+    cookies["user_id"] = ""
+    cookies["nickname"] = ""
+    cookies["is_admin"] = ""
+    cookies.save()
 
 def check_auth():
-    """Controlla l'auth e applica il restyling globale dell'app."""
-    # Verifichiamo se l'utente è loggato
-    is_logged_in = 'id_user_loggato' in st.session_state and st.session_state.id_user_loggato is None
-    
     if 'id_user_loggato' not in st.session_state or st.session_state.id_user_loggato is None:
-        # Nascondi sidebar se non loggato
         st.markdown(
             "<style>[data-testid='stSidebar'], [data-testid='stSidebarCollapsedControl'] {display: none !important;}</style>", 
             unsafe_allow_html=True
         )
-        
-        # IMPORTANTE: Se non è loggato e NON siamo nella Home, blocchiamo l'accesso.
-        # Se siamo nella Home, NON chiamiamo st.stop() altrimenti il form di login non funziona.
-        try:
-            # Recuperiamo il nome della pagina corrente in modo sicuro
-            from streamlit.runtime.scriptrunner import get_script_run_ctx
-            ctx = get_script_run_ctx()
-            # Se ctx è None o la pagina non è Home.py, mostriamo l'avviso e stoppiamo
-            if ctx:
-                # Nota: Streamlit usa nomi diversi a seconda di come è lanciato, 
-                # verifichiamo se non siamo nella pagina principale.
-                pass 
-        except:
-            pass
-
     else:
-        # Forza la visualizzazione se loggato (Risolve il problema mobile)
         st.markdown(
             "<style>[data-testid='stSidebar'], [data-testid='stSidebarCollapsedControl'] {display: flex !important;}</style>", 
             unsafe_allow_html=True
         )
     
-    # --- RESTYLING GRAFICO GLOBALE ---
     st.markdown("""
         <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap');
-        
         * { font-family: 'Inter', sans-serif; }
-
-        /* 1. NASCONDE FOOTER E DECORAZIONE SUPERIORE */
-        footer, [data-testid="stDecoration"] {
-            display: none !important;
-        }
-
-        /* 2. NASCONDE PULSANTI DI DEPLOY E ALTRE INFO */
-        .stAppDeployButton, 
-        [data-testid="stStatusWidget"],
-        div[class*="viewerBadge"],
-        button[title="View source on GitHub"] {
-            display: none !important;
-        }
-
-        /* Sidebar Glassmorphism */
+        footer, [data-testid="stDecoration"] { display: none !important; }
+        .stAppDeployButton, [data-testid="stStatusWidget"],
+        div[class*="viewerBadge"], button[title="View source on GitHub"] { display: none !important; }
         [data-testid="stSidebar"] {
             background-color: rgba(20, 20, 20, 0.8) !important;
             backdrop-filter: blur(15px);
             border-right: 1px solid rgba(255, 255, 255, 0.05);
         }
-
-        /* Container delle Card */
         div[data-testid="stVerticalBlock"] > div > div[style*="border"] {
             background: rgba(30, 30, 30, 0.6) !important;
             border: 1px solid rgba(255, 255, 255, 0.1) !important;
@@ -68,14 +67,11 @@ def check_auth():
             padding: 20px !important;
             transition: all 0.3s ease;
         }
-        
         div[data-testid="stVerticalBlock"] > div > div[style*="border"]:hover {
             transform: translateY(-5px);
             border-color: #ff4b4b !important;
             box-shadow: 0 10px 20px rgba(0,0,0,0.3);
         }
-
-        /* Bottoni Custom */
         .stButton > button {
             border-radius: 10px !important;
             border: none !important;
@@ -88,39 +84,25 @@ def check_auth():
             transform: scale(1.03);
             box-shadow: 0 4px 15px rgba(255, 75, 75, 0.4);
         }
-
-        /* User Box Sidebar */
         .sidebar-user-box { 
-            display: flex; 
-            align-items: center; 
-            gap: 15px; 
-            padding: 15px; 
+            display: flex; align-items: center; gap: 15px; padding: 15px; 
             background: rgba(255, 255, 255, 0.03);
-            border-radius: 12px;
-            margin-bottom: 20px;
+            border-radius: 12px; margin-bottom: 20px;
         }
         .sidebar-user-box img {
-            border-radius: 50% !important; 
-            border: 2px solid #ff4b4b !important;
-            width: 50px !important; 
-            height: 50px !important; 
-            object-fit: cover;
-            box-shadow: 0 0 10px rgba(255, 75, 75, 0.3);
+            border-radius: 50% !important; border: 2px solid #ff4b4b !important;
+            width: 50px !important; height: 50px !important; 
+            object-fit: cover; box-shadow: 0 0 10px rgba(255, 75, 75, 0.3);
         }
-        
         .side-header { 
-            font-size: 0.75rem; 
-            color: #666; 
-            text-transform: uppercase; 
-            letter-spacing: 1px;
-            margin: 20px 0 10px 5px; 
+            font-size: 0.75rem; color: #666; text-transform: uppercase; 
+            letter-spacing: 1px; margin: 20px 0 10px 5px; 
         }
         </style>
     """, unsafe_allow_html=True)
 
 
 def render_sidebar():
-    """Disegna la sidebar con lo stile aggiornato."""
     with st.sidebar:
         st.page_link("Home.py", label="Home", icon="🏠")
         st.page_link("pages/01_Inserimento.py", label="Pick", icon="✍️")
@@ -128,7 +110,6 @@ def render_sidebar():
         
         st.markdown('<p class="side-header">Account</p>', unsafe_allow_html=True)
         
-        # Recupero nome utente in modo sicuro
         user_display_name = st.session_state.get('nome_user_loggato', 'Rider')
         
         st.markdown(f"""
@@ -147,10 +128,10 @@ def render_sidebar():
                 st.switch_page("pages/07_modifica_profilo.py")
         with col2:
             if st.button("Esci 🚪", key="btn_logout", use_container_width=True):
+                clear_session_cookie()
                 st.session_state.clear()
                 st.rerun()
 
-        # Sezione Admin
         if st.session_state.get('is_admin', False):
             st.markdown('<p class="side-header" style="color: #ff4b4b;">Admin Panel</p>', unsafe_allow_html=True)
             st.page_link("pages/03_Gestione_Risultati.py", label="Risultati", icon="📊")
