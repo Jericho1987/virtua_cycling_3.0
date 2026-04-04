@@ -113,6 +113,20 @@ def check_auth():
             font-size: 0.75rem; color: #666; text-transform: uppercase;
             letter-spacing: 1px; margin: 20px 0 10px 5px;
         }
+        .nav-button > button {
+            background: transparent !important;
+            color: white !important;
+            text-align: left !important;
+            font-weight: 400 !important;
+            box-shadow: none !important;
+            border: none !important;
+            padding: 4px 8px !important;
+        }
+        .nav-button > button:hover {
+            background: rgba(255,255,255,0.05) !important;
+            transform: none !important;
+            box-shadow: none !important;
+        }
         </style>
     """, unsafe_allow_html=True)
 
@@ -124,10 +138,23 @@ def render_sidebar():
     except:
         supabase = None
 
+    token = st.session_state.get("_session_token", "")
+
     with st.sidebar:
-        st.page_link("Home.py", label="Home", icon="🏠")
-        st.page_link("pages/01_Inserimento.py", label="Pick", icon="✍️")
-        st.page_link("pages/02_Classifiche.py", label="Leaderboard", icon="🏆")
+        # Navigazione principale con token
+        st.markdown('<div class="nav-button">', unsafe_allow_html=True)
+        if st.button("🏠 Home", use_container_width=True, key="nav_home"):
+            st.query_params["token"] = token
+            st.switch_page("Home.py")
+
+        if st.button("✍️ Pick", use_container_width=True, key="nav_pick"):
+            st.query_params["token"] = token
+            st.switch_page("pages/01_Inserimento.py")
+
+        if st.button("🏆 Leaderboard", use_container_width=True, key="nav_leaderboard"):
+            st.query_params["token"] = token
+            st.switch_page("pages/02_Classifiche.py")
+        st.markdown('</div>', unsafe_allow_html=True)
 
         st.markdown('<p class="side-header">Account</p>', unsafe_allow_html=True)
 
@@ -146,6 +173,7 @@ def render_sidebar():
         col1, col2 = st.columns([1, 1])
         with col1:
             if st.button("Profilo ⚙️", key="btn_settings", use_container_width=True):
+                st.query_params["token"] = token
                 st.switch_page("pages/07_modifica_profilo.py")
         with col2:
             if st.button("Esci 🚪", key="btn_logout", use_container_width=True):
@@ -155,9 +183,27 @@ def render_sidebar():
 
         if st.session_state.get('is_admin', False):
             st.markdown('<p class="side-header" style="color: #ff4b4b;">Admin Panel</p>', unsafe_allow_html=True)
-            st.page_link("pages/03_Gestione_Risultati.py", label="Risultati", icon="📊")
-            st.page_link("pages/04_Upload_Startlist.py", label="Startlist", icon="📑")
-            st.page_link("pages/05_Upload_Mass_Results.py", label="Mass Results", icon="🗂️")
-            st.page_link("pages/06_insert_pick_massive.py", label="Massive Pick", icon="⚡")
-            st.page_link("pages/08_Gestione_Date.py", label="Gestione Corse", icon="📅")
-            st.page_link("pages/09_gestione_team.py", label="Gestione Team", icon="🚴‍♂️")
+
+            if st.button("📊 Risultati", use_container_width=True, key="nav_risultati"):
+                st.query_params["token"] = token
+                st.switch_page("pages/03_Gestione_Risultati.py")
+
+            if st.button("📑 Startlist", use_container_width=True, key="nav_startlist"):
+                st.query_params["token"] = token
+                st.switch_page("pages/04_Upload_Startlist.py")
+
+            if st.button("🗂️ Mass Results", use_container_width=True, key="nav_mass"):
+                st.query_params["token"] = token
+                st.switch_page("pages/05_Upload_Mass_Results.py")
+
+            if st.button("⚡ Massive Pick", use_container_width=True, key="nav_massive"):
+                st.query_params["token"] = token
+                st.switch_page("pages/06_insert_pick_massive.py")
+
+            if st.button("📅 Gestione Corse", use_container_width=True, key="nav_corse"):
+                st.query_params["token"] = token
+                st.switch_page("pages/08_Gestione_Date.py")
+
+            if st.button("🚴‍♂️ Gestione Team", use_container_width=True, key="nav_team"):
+                st.query_params["token"] = token
+                st.switch_page("pages/09_gestione_team.py")
