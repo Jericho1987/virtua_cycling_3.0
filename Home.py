@@ -1,9 +1,7 @@
 import streamlit as st
 from supabase import create_client
-from auth_utils import check_auth, render_sidebar, init_cookies, restore_session_from_cookie, save_session_to_cookie
+from auth_utils import check_auth, render_sidebar, restore_session_from_cookie, save_session_to_cookie
 from datetime import datetime
-
-# --- INIT COOKIE (DEVE STARE PRIMA DI set_page_config) ---
 
 # 1. Configurazione pagina
 st.set_page_config(page_title="Virtua Cycling - Home", layout="wide", page_icon="🚴‍♂️")
@@ -31,7 +29,7 @@ url = st.secrets["SUPABASE_URL"]
 key = st.secrets["SUPABASE_KEY"]
 supabase = create_client(url, key)
 
-# --- RIPRISTINO SESSIONE DA COOKIE ---
+# --- RIPRISTINO SESSIONE DA TOKEN ---
 restore_session_from_cookie(supabase)
 
 # --- LOGICA SESSIONE ---
@@ -70,8 +68,8 @@ if st.session_state.id_user_loggato is None:
                             st.session_state.is_admin = u_info.data.get('is_admin', False)
                             st.session_state.supabase_session = res.session
                             st.session_state.just_logged = True
-                            # --- SALVA SESSIONE NEL COOKIE ---
-                            save_session_to_cookie(res.user.id, u_info.data['nickname'], u_info.data.get('is_admin', False))
+                            # --- SALVA TOKEN SU SUPABASE E URL ---
+                            save_session_to_cookie(supabase, res.user.id, u_info.data['nickname'], u_info.data.get('is_admin', False))
                             st.rerun()
                         else:
                             st.error("Credenziali errate.")
@@ -98,7 +96,7 @@ if st.session_state.just_logged:
 
 # --- DASHBOARD UTENTE ---
 check_auth()
-render_sidebar()
+render_sidebar(supabase)
 
 # Forza sidebar mobile
 st.markdown("""
