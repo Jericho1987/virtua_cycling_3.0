@@ -114,7 +114,7 @@ def check_auth():
     """, unsafe_allow_html=True)
 
 
-def render_sidebar(supabase):
+def render_sidebar():
     with st.sidebar:
         st.page_link("Home.py", label="Home", icon="🏠")
         st.page_link("pages/01_Inserimento.py", label="Pick", icon="✍️")
