@@ -1,6 +1,6 @@
 import streamlit as st
 from supabase import create_client
-from auth_utils import check_auth, render_sidebar, restore_session_from_cookie
+from auth_utils import check_auth, render_sidebar, restore_session_from_cookie, save_session_to_cookie, inject_token_persistence
 import pandas as pd
 
 # 1. Configurazione pagina (DEVE essere la prima istruzione Streamlit)
@@ -24,6 +24,7 @@ if not st.session_state.get("id_user_loggato"):
 # 2. Protezione e Sidebar (Popola lo stile e il menu)
 check_auth()
 render_sidebar()
+inject_token_persistence()  # <-- aggiunge questa riga
 
 # --- STILE CSS ---
 st.markdown("""
