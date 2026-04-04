@@ -44,7 +44,6 @@ if target_race is None or target_stage is None:
 col_f1, col_f2 = st.columns(2)
 
 with col_f1:
-    # Recuperiamo id_type_race per la logica condizionale
     gare = supabase.table("dim_race").select("id_race, name, id_type_race").execute().data
     
     idx_g = 0
@@ -56,12 +55,10 @@ with col_f1:
     
     sel_gara = st.selectbox("Seleziona Gara", gare, index=idx_g, format_func=lambda x: x['name'])
 
-# Controllo se è One Day Race
 is_one_day_race = sel_gara.get('id_type_race') == 3
 
 with col_f2:
     if is_one_day_race:
-        # Recupera silenziosamente l'id dello stage senza mostrare widget
         tappa_data = supabase.table("dim_race_stage")\
             .select("id_stage, id_stage_number")\
             .eq("id_race", sel_gara['id_race'])\
@@ -69,7 +66,6 @@ with col_f2:
             .execute().data
         sel_tappa = tappa_data[0] if tappa_data else None
     else:
-        # Mostra il selectbox solo per corse a tappe
         tappe = supabase.table("dim_race_stage").select("id_stage, id_stage_number").eq("id_race", sel_gara['id_race']).order("id_stage_number").execute().data
         
         idx_t = 0
@@ -83,49 +79,78 @@ with col_f2:
 
 st.markdown("---")
 
-# --- 3. RECUPERO DATI ---
+# Funzione di supporto per le icone posizione
+def make_pretty_pos(pos):
+    icons = {1: "🥇", 2: "🥈", 3: "🥉"}
+    return icons.get(pos, str(pos))
+
+# --- 3. RECUPERO DATI E VISUALIZZAZIONE ---
 if sel_tappa:
-    res = supabase.table("view_simulazione_punti")\
-        .select("posizione_classifica, display_name, punti_totali")\
-        .eq("id_stage", sel_tappa['id_stage'])\
-        .order("posizione_classifica")\
-        .execute()
-
-    if res.data:
-        df = pd.DataFrame(res.data)
-        
-        # --- IL PODIO ---
-        st.subheader("🏆 Il Podio")
-        podio_cols = st.columns(3)
-        for i in range(3):
-            with podio_cols[i]:
-                if len(df) > i:
-                    user = df.iloc[i]
-                    medaglie = ["🥇 1° Posto", "🥈 2° Posto", "🥉 3° Posto"]
-                    st.metric(label=medaglie[i], value=f"{user['punti_totali']} pt", delta=user['display_name'], delta_color="off")
-
-        st.write("") 
-
-        # --- IL TABELLONE (Titolo Dinamico) ---
-        if is_one_day_race:
-            titolo_tabellone = f"{sel_gara['name']} - One Day Race"
-        else:
-            titolo_tabellone = f"Classifica: {sel_gara['name']} - T{sel_tappa['id_stage_number']}"
-            
-        st.subheader(titolo_tabellone)
-        
-        def make_pretty_pos(pos):
-            icons = {1: "🥇", 2: "🥈", 3: "🥉"}
-            return icons.get(pos, str(pos))
-
-        df['Rank'] = df['posizione_classifica'].apply(make_pretty_pos)
-        df_view = df[['Rank', 'display_name', 'punti_totali']].copy()
-        df_view.columns = ["Pos.", "Giocatore", "Punteggio"]
-
-        st.dataframe(df_view, use_container_width=True, hide_index=True,
-            column_config={"Punteggio": st.column_config.NumberColumn("Punti", format="%d ⚡")})
+    # Se NON è una corsa di un giorno, mostriamo i Tab
+    if not is_one_day_race:
+        tab_tappa, tab_generale = st.tabs(["⏱️ Classifica Tappa", "🏆 Classifica Generale"])
     else:
-        st.info("Nessun dato disponibile per questa selezione.")
+        # Per le corse singole usiamo un solo "contenitore" fittizio per riusare la logica
+        tab_tappa = st.container()
+
+    # --- TAB CLASSIFICA TAPPA ---
+    with tab_tappa:
+        res_tappa = supabase.table("view_classifica_tappa")\
+            .select("posizione, display_name, gap_stage")\
+            .eq("id_stage", sel_tappa['id_stage'])\
+            .order("posizione")\
+            .execute()
+
+        if res_tappa.data:
+            df_t = pd.DataFrame(res_tappa.data)
+            
+            # Podio Tappa
+            st.subheader("🏆 Podio di Tappa")
+            p_cols = st.columns(3)
+            for i in range(3):
+                with p_cols[i]:
+                    if len(df_t) > i:
+                        u = df_t.iloc[i]
+                        med = ["🥇 1° Posto", "🥈 2° Posto", "🥉 3° Posto"]
+                        st.metric(label=med[i], value=f"+{u['gap_stage']}″", delta=u['display_name'], delta_color="off")
+
+            # Tabella Tappa
+            df_t['Rank'] = df_t['posizione'].apply(make_pretty_pos)
+            df_t_view = df_t[['Rank', 'display_name', 'gap_stage']].copy()
+            df_t_view.columns = ["Pos.", "Giocatore", "Distacco"]
+            st.dataframe(df_t_view, use_container_width=True, hide_index=True)
+        else:
+            st.info("Nessun dato disponibile per questa tappa.")
+
+    # --- TAB CLASSIFICA GENERALE (Solo se id_type_race != 3) ---
+    if not is_one_day_race:
+        with tab_generale:
+            res_gc = supabase.table("view_classifica_generale")\
+                .select("posizione_gc, display_name, gap_totale")\
+                .eq("id_stage", sel_tappa['id_stage'])\
+                .order("posizione_gc")\
+                .execute()
+
+            if res_gc.data:
+                df_gc = pd.DataFrame(res_gc.data)
+                
+                # Podio Generale
+                st.subheader("👕 Leader Classifica Generale")
+                g_cols = st.columns(3)
+                for i in range(3):
+                    with g_cols[i]:
+                        if len(df_gc) > i:
+                            u_gc = df_gc.iloc[i]
+                            st.metric(label=f"Posizione {i+1}", value=f"{u_gc['gap_totale']}″", delta=u_gc['display_name'], delta_color="off")
+
+                # Tabella Generale
+                df_gc['Rank'] = df_gc['posizione_gc'].apply(make_pretty_pos)
+                df_gc_view = df_gc[['Rank', 'display_name', 'gap_totale']].copy()
+                df_gc_view.columns = ["Pos.", "Giocatore", "Gap Totale"]
+                st.dataframe(df_gc_view, use_container_width=True, hide_index=True)
+            else:
+                st.info("Dati della classifica generale non ancora disponibili.")
+
 else:
     st.warning("Nessuna tappa trovata per questa gara.")
 
