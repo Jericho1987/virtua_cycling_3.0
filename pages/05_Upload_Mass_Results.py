@@ -93,14 +93,18 @@ try:
     st.divider()
     input_text = st.text_area("Incolla qui l'ordine d'arrivo (inclusi DNF):", height=300)
 
-    if input_text:
-        if st.button("Analizza Risultati 🔍"):
+    if st.button("Analizza Risultati 🔍"):
+        if not input_text:
+            st.warning("Incolla prima il testo con i risultati!")
+        else:
             results = parse_results_v4(input_text)
             if results:
                 st.session_state.results_df = pd.DataFrame(results)
                 st.session_state.results_id_stage = id_stage
                 st.session_state.results_id_race = id_race
                 st.success(f"Analisi completata: {len(results)} corridori trovati.")
+            else:
+                st.warning("Nessun risultato trovato nel testo.")
 
     if 'results_df' in st.session_state:
         df_preview = st.session_state.results_df.copy()
