@@ -185,3 +185,4 @@ def render_sidebar():
             st.page_link("pages/06_insert_pick_massive.py", label="Massive Pick", icon="⚡")
             st.page_link("pages/08_Gestione_Date.py", label="Gestione Corse", icon="📅")
             st.page_link("pages/09_gestione_team.py", label="Gestione Team", icon="🚴‍♂️")
+            st.page_link("pages/10_Upload_result_pcs.py", label="PCS Scraper", icon="🌐")
