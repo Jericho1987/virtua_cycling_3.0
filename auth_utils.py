@@ -1,66 +1,65 @@
 import streamlit as st
-import extra_streamlit_components as stx
+import uuid
 from datetime import datetime, timedelta
 
-def get_cookie_manager():
-    if "cookie_manager" not in st.session_state:
-        st.session_state.cookie_manager = stx.CookieManager(key="virtua_cookie_manager")
-    return st.session_state.cookie_manager
+def generate_token():
+    return str(uuid.uuid4())
 
-def init_cookies():
-    return get_cookie_manager()
+def save_session_to_cookie(supabase, user_id, nickname, is_admin):
+    try:
+        token = generate_token()
+        supabase.table("dim_user").update({"session_token": token}).eq("id_user", user_id).execute()
+        st.query_params["token"] = token
+        st.session_state.id_user_loggato = user_id
+        st.session_state.nome_user_loggato = nickname
+        st.session_state.is_admin = is_admin
+    except Exception as e:
+        st.error(f"Errore salvataggio sessione: {e}")
 
 def restore_session_from_cookie(supabase):
     if st.session_state.get("id_user_loggato"):
         return True
     
     try:
-        cm = get_cookie_manager()
-        saved_user_id = cm.get("user_id")
-        saved_nickname = cm.get("nickname")
-        saved_is_admin = cm.get("is_admin")
-
-        if saved_user_id and saved_nickname:
-            st.session_state.id_user_loggato = saved_user_id
-            st.session_state.nome_user_loggato = saved_nickname
-            st.session_state.is_admin = saved_is_admin == "True"
+        token = st.query_params.get("token")
+        if not token:
+            return False
+        
+        res = supabase.table("dim_user").select("id_user, nickname, is_admin").eq("session_token", token).single().execute()
+        if res.data:
+            st.session_state.id_user_loggato = res.data["id_user"]
+            st.session_state.nome_user_loggato = res.data["nickname"]
+            st.session_state.is_admin = res.data.get("is_admin", False)
             return True
     except Exception:
         pass
     
     return False
 
-def save_session_to_cookie(user_id, nickname, is_admin):
+def clear_session_cookie(supabase):
     try:
-        cm = get_cookie_manager()
-        expiry = datetime.now() + timedelta(days=30)
-        cm.set("user_id", user_id, expires_at=expiry)
-        cm.set("nickname", nickname, expires_at=expiry)
-        cm.set("is_admin", str(is_admin), expires_at=expiry)
+        user_id = st.session_state.get("id_user_loggato")
+        if user_id:
+            supabase.table("dim_user").update({"session_token": None}).eq("id_user", user_id).execute()
+        st.query_params.clear()
     except Exception:
         pass
 
-def clear_session_cookie():
-    try:
-        cm = get_cookie_manager()
-        cm.delete("user_id")
-        cm.delete("nickname")
-        cm.delete("is_admin")
-    except Exception:
-        pass
+def init_cookies():
+    pass
 
 def check_auth():
     if 'id_user_loggato' not in st.session_state or st.session_state.id_user_loggato is None:
         st.markdown(
-            "<style>[data-testid='stSidebar'], [data-testid='stSidebarCollapsedControl'] {display: none !important;}</style>", 
+            "<style>[data-testid='stSidebar'], [data-testid='stSidebarCollapsedControl'] {display: none !important;}</style>",
             unsafe_allow_html=True
         )
     else:
         st.markdown(
-            "<style>[data-testid='stSidebar'], [data-testid='stSidebarCollapsedControl'] {display: flex !important;}</style>", 
+            "<style>[data-testid='stSidebar'], [data-testid='stSidebarCollapsedControl'] {display: flex !important;}</style>",
             unsafe_allow_html=True
         )
-    
+
     st.markdown("""
         <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap');
@@ -97,34 +96,34 @@ def check_auth():
             transform: scale(1.03);
             box-shadow: 0 4px 15px rgba(255, 75, 75, 0.4);
         }
-        .sidebar-user-box { 
-            display: flex; align-items: center; gap: 15px; padding: 15px; 
+        .sidebar-user-box {
+            display: flex; align-items: center; gap: 15px; padding: 15px;
             background: rgba(255, 255, 255, 0.03);
             border-radius: 12px; margin-bottom: 20px;
         }
         .sidebar-user-box img {
             border-radius: 50% !important; border: 2px solid #ff4b4b !important;
-            width: 50px !important; height: 50px !important; 
+            width: 50px !important; height: 50px !important;
             object-fit: cover; box-shadow: 0 0 10px rgba(255, 75, 75, 0.3);
         }
-        .side-header { 
-            font-size: 0.75rem; color: #666; text-transform: uppercase; 
-            letter-spacing: 1px; margin: 20px 0 10px 5px; 
+        .side-header {
+            font-size: 0.75rem; color: #666; text-transform: uppercase;
+            letter-spacing: 1px; margin: 20px 0 10px 5px;
         }
         </style>
     """, unsafe_allow_html=True)
 
 
-def render_sidebar():
+def render_sidebar(supabase):
     with st.sidebar:
         st.page_link("Home.py", label="Home", icon="🏠")
         st.page_link("pages/01_Inserimento.py", label="Pick", icon="✍️")
         st.page_link("pages/02_Classifiche.py", label="Leaderboard", icon="🏆")
-        
+
         st.markdown('<p class="side-header">Account</p>', unsafe_allow_html=True)
-        
+
         user_display_name = st.session_state.get('nome_user_loggato', 'Rider')
-        
+
         st.markdown(f"""
             <div class="sidebar-user-box">
                 <img src="https://github.com/Jericho1987/virtua_cycling_3.0/blob/main/rider_logo.jpg?raw=true">
@@ -134,14 +133,14 @@ def render_sidebar():
                 </div>
             </div>
         """, unsafe_allow_html=True)
-        
+
         col1, col2 = st.columns([1, 1])
         with col1:
             if st.button("Profilo ⚙️", key="btn_settings", use_container_width=True):
                 st.switch_page("pages/07_modifica_profilo.py")
         with col2:
             if st.button("Esci 🚪", key="btn_logout", use_container_width=True):
-                clear_session_cookie()
+                clear_session_cookie(supabase)
                 st.session_state.clear()
                 st.rerun()
 
