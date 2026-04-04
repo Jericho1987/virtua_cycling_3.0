@@ -1,3 +1,5 @@
 streamlit
 supabase
 extra-streamlit-components
+cloudscraper
+beautifulsoup4
