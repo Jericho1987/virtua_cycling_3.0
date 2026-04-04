@@ -2,9 +2,10 @@ import streamlit as st
 import extra_streamlit_components as stx
 from datetime import datetime, timedelta
 
-@st.cache_resource
 def get_cookie_manager():
-    return stx.CookieManager(key="virtua_cookie_manager")
+    if "cookie_manager" not in st.session_state:
+        st.session_state.cookie_manager = stx.CookieManager(key="virtua_cookie_manager")
+    return st.session_state.cookie_manager
 
 def init_cookies():
     return get_cookie_manager()
