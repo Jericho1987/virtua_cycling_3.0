@@ -1,10 +1,23 @@
 import streamlit as st
 from supabase import create_client
-from auth_utils import check_auth, render_sidebar
+from auth_utils import check_auth, render_sidebar, init_cookies, restore_session_from_cookie
 import pandas as pd
 
 # 1. Configurazione pagina
 st.set_page_config(page_title="Inserimento Formazione", layout="wide", page_icon="📝")
+
+# --- RIPRISTINO SESSIONE DA COOKIE ---
+cookies = init_cookies()
+url = st.secrets["SUPABASE_URL"]
+key = st.secrets["SUPABASE_KEY"]
+supabase = create_client(url, key)
+restore_session_from_cookie(supabase)
+
+# --- CONTROLLO AUTH ---
+if not st.session_state.get("id_user_loggato"):
+    st.warning("Sessione scaduta. Torna alla Home.")
+    st.switch_page("Home.py")
+    st.stop()
 
 
 # 2. Protezione e Sidebar
