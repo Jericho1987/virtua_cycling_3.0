@@ -4,8 +4,11 @@ from streamlit_cookies_manager import EncryptedCookieManager
 cookies = EncryptedCookieManager(prefix="virtua_", password="dev_secret_key_123")
 
 def init_cookies():
-    if not cookies.ready():
-        st.stop()
+    try:
+        if not cookies.ready():
+            st.stop()
+    except Exception:
+        pass
     return cookies
 
 def restore_session_from_cookie(supabase):
