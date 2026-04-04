@@ -1,6 +1,6 @@
 import streamlit as st
 from supabase import create_client
-from auth_utils import check_auth, render_sidebar, restore_session_from_cookie, save_session_to_cookie
+from auth_utils import check_auth, render_sidebar, restore_session_from_cookie, save_session_to_cookie, inject_token_persistence
 from datetime import datetime
 
 # 1. Configurazione pagina
@@ -96,6 +96,7 @@ if st.session_state.just_logged:
 # --- DASHBOARD UTENTE ---
 check_auth()
 render_sidebar()
+inject_token_persistence()
 
 # Forza sidebar mobile
 st.markdown("""
