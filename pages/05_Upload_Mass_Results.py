@@ -153,7 +153,7 @@ try:
         id_stage = stage_options[sel_stage_name]
 
     st.divider()
-    tab_pc, tab_mobile = st.tabs(["💻 Incolla da PC", "📱 Incolla da Mobile"])
+    tab_pc, tab_mobile = st.tabs(["💻 Incolla da PC/iOS", "📱 Incolla da Android solo FIREFOX"])
 
     with tab_pc:
         input_pc = st.text_area("Formato riga singola:", height=300, key="pc_in")
