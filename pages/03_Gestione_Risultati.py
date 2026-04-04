@@ -1,21 +1,26 @@
 import streamlit as st
 from supabase import create_client
-from auth_utils import check_auth, render_sidebar 
+from auth_utils import check_auth, render_sidebar, restore_session_from_cookie
 
 st.set_page_config(page_title="Gestione Risultati", layout="wide", page_icon="⚙️")
 
-# --- PROTEZIONE E SIDEBAR ---
-check_auth()      
-render_sidebar()  
-
-# Inizializzazione Supabase
+# --- INIZIALIZZAZIONE SUPABASE ---
 url = st.secrets["SUPABASE_URL"]
 key = st.secrets["SUPABASE_KEY"]
 supabase = create_client(url, key)
 
-if not st.session_state.get('id_user_loggato'):
-    st.error("Effettua il login per accedere a questa pagina.")
+# --- RIPRISTINO SESSIONE ---
+restore_session_from_cookie(supabase)
+
+# --- CONTROLLO AUTH ---
+if not st.session_state.get("id_user_loggato"):
+    st.warning("Sessione scaduta. Torna alla Home.")
+    st.switch_page("Home.py")
     st.stop()
+
+# --- PROTEZIONE E SIDEBAR ---
+check_auth()
+render_sidebar()
 
 st.title("⚙️ Inserimento Risultati Ufficiali")
 st.caption("Piattaforma di inserimento per gli amministratori. I dati salvati aggiornano le classifiche in tempo reale.")
@@ -43,16 +48,15 @@ res = supabase.table("view_admin_riders_to_score")\
     .eq("id_stage", sel_tappa['id_stage'])\
     .execute()
 
+# Inizializziamo sempre lista_payload
+lista_payload = []
+
 if not res.data:
     st.info(f"Nessun pick trovato per {sel_gara['name']} - Tappa {sel_tappa['id_stage_number']}. Assicurati che gli utenti abbiano inserito le formazioni.")
 else:
     st.subheader(f"Ordine d'arrivo: {sel_gara['name']}")
-    
-    # Inizializziamo la lista payload fuori dal form per il debug
-    lista_payload = []
-    
+
     with st.form("form_gestione_risultati"):
-        # Header Tabella
         h1, h2, h3 = st.columns([3, 1, 1])
         h1.write("**Ciclista (Scelto dagli utenti)**")
         h2.write("**Posizione Arrivo**")
@@ -62,12 +66,9 @@ else:
             c1, c2, c3 = st.columns([3, 1, 1])
             c1.write(r['rider_name'])
             
-            # --- FIX ERRORE VALORE MASSIMO ---
-            # Se il valore nel DB è > 300, lo forziamo a 999 per evitare il crash di Streamlit
             val_db = int(r['current_rank']) if r['current_rank'] is not None else 0
             val_iniziale = min(val_db, 999)
             
-            # Input numerico
             nuovo_rank = c2.number_input(
                 f"Rank {r['id_rider']}", 
                 min_value=0, 
@@ -77,7 +78,6 @@ else:
                 label_visibility="collapsed"
             )
             
-            # Checkbox DNF
             is_dnf = c3.checkbox("DNF", key=f"dnf_{r['id_rider']}")
             
             lista_payload.append({
@@ -89,12 +89,9 @@ else:
                 "is_dnf": is_dnf
             })
         
-        st.write("")
-        # --- FIX MISSING SUBMIT BUTTON ---
-        # Il bottone deve essere l'ultimo elemento DENTRO il blocco 'with st.form'
         invio = st.form_submit_button("💾 SALVA E AGGIORNA CLASSIFICHE", use_container_width=True, type="primary")
 
-    # --- 3. LOGICA DI SALVATAGGIO (eseguita solo al submit) ---
+    # --- 3. LOGICA DI SALVATAGGIO ---
     if invio:
         try:
             response = supabase.table("fact_results").upsert(
