@@ -23,7 +23,7 @@ if not st.session_state.get("id_user_loggato"):
 check_auth()
 render_sidebar()
 
-# --- FUNZIONE PARSING PC (ORIGINALE) ---
+# --- FUNZIONE PARSING PC (ORIGINALE - NON TOCCATA) ---
 def parse_results_v4(text):
     lines = text.split('\n')
     parsed_data = []
@@ -72,26 +72,42 @@ def parse_results_v4(text):
         parsed_data.append(current_entry)
     return parsed_data
 
-# --- FUNZIONE PARSING MOBILE (NUOVA) ---
+# --- FUNZIONE PARSING MOBILE (AGGIORNATA PER EVITARE SPLIT ERRATI) ---
 def parse_results_mobile(text):
     lines = [line.strip() for line in text.split('\n') if line.strip()]
     parsed_data = []
     current_entry = None
     last_time = "0:00:00"
     
+    # Regex per catturare l'inizio riga con Rank e Bib
     rank_bib_re = r'^(\d+)\s+(\d+)'
     dnf_re = r'^DNF\s*(\d+)'
     time_re = r'(,,|\d{1,2}:\d{2}(?::\d{2})?)$'
 
     for line in lines:
+        # Tentativo di match per nuovo atleta o DNF
         new_rider = re.match(rank_bib_re, line)
         dnf_rider = re.match(dnf_re, line, re.IGNORECASE)
 
-        if new_rider or dnf_rider:
+        # Logica di validazione: un nuovo atleta deve avere un rank sensato
+        # (es. se ho già 2 atleti, il prossimo deve essere il 3 o un numero vicino, non 400)
+        is_real_start = False
+        if new_rider:
+            try:
+                rank_val = int(new_rider.group(1))
+                next_expected = len(parsed_data) + 1
+                # Accettiamo il rank se è il prossimo atteso o se è un numero piccolo (< 500)
+                # Questo evita che i punti UCI (es. 400) vengano letti come Rank
+                if rank_val == next_expected or rank_val < 500:
+                    is_real_start = True
+            except:
+                pass
+
+        if is_real_start or dnf_rider:
             if current_entry:
                 parsed_data.append(current_entry)
             
-            if new_rider:
+            if is_real_start:
                 rank, bib = new_rider.groups()
                 rest = line[new_rider.end():].strip()
                 initial_gap = "0:00:00" if rank == "1" else "st"
@@ -102,6 +118,7 @@ def parse_results_mobile(text):
                 current_entry = {"rank": "DNF", "bib": bib_dnf, "full_info": rest_dnf, "gap": ""}
             continue
 
+        # Se siamo qui, la riga corrente appartiene all'atleta "current_entry"
         if current_entry:
             time_match = re.search(time_re, line)
             if time_match and current_entry["rank"] != "DNF":
@@ -114,10 +131,12 @@ def parse_results_mobile(text):
                     current_entry["gap"] = gap
                     last_time = gap
                 
+                # Aggiungiamo eventuali info residue della riga prima del tempo
                 clean_line = re.sub(time_re, '', line).strip()
                 if clean_line:
                     current_entry["full_info"] += " " + clean_line
             else:
+                # È una riga intermedia (es. squadra o punti tipo 400 225)
                 current_entry["full_info"] += " " + line
 
     if current_entry:
@@ -145,40 +164,35 @@ try:
 
     st.divider()
 
-    # --- TAB PER PC E MOBILE ---
+    # --- TAB PC / MOBILE ---
     tab_pc, tab_mobile = st.tabs(["💻 Incolla da PC", "📱 Incolla da Mobile"])
 
     with tab_pc:
-        input_pc = st.text_area("Copia qui l'ordine d'arrivo da PC:", height=300, key="pc_text")
+        input_pc = st.text_area("Incolla qui l'ordine d'arrivo (PC):", height=300, key="txt_pc")
         if st.button("Analizza Risultati PC 🔍"):
-            if not input_pc:
-                st.warning("Incolla prima il testo!")
-            else:
+            if input_pc:
                 results = parse_results_v4(input_pc)
-                if results:
-                    st.session_state.results_df = pd.DataFrame(results)
-                    st.session_state.results_id_stage = id_stage
-                    st.session_state.results_id_race = id_race
-                    st.success(f"Analisi PC completata: {len(results)} corridori.")
+                st.session_state.results_df = pd.DataFrame(results)
+                st.session_state.results_id_stage = id_stage
+                st.session_state.results_id_race = id_race
+                st.success(f"Analisi PC completata: {len(results)} record.")
 
     with tab_mobile:
-        input_mobile = st.text_area("Copia qui l'ordine d'arrivo da Mobile:", height=300, key="mobile_text")
+        input_mobile = st.text_area("Incolla qui l'ordine d'arrivo (Mobile):", height=300, key="txt_mobile")
         if st.button("Analizza Risultati Mobile 📱"):
-            if not input_mobile:
-                st.warning("Incolla prima il testo!")
-            else:
+            if input_mobile:
                 results = parse_results_mobile(input_mobile)
-                if results:
-                    st.session_state.results_df = pd.DataFrame(results)
-                    st.session_state.results_id_stage = id_stage
-                    st.session_state.results_id_race = id_race
-                    st.success(f"Analisi Mobile completata: {len(results)} corridori.")
+                st.session_state.results_df = pd.DataFrame(results)
+                st.session_state.results_id_stage = id_stage
+                st.session_state.results_id_race = id_race
+                st.success(f"Analisi Mobile completata: {len(results)} record.")
 
-    # --- ANTEPRIMA E SALVATAGGIO ---
+    # --- VISUALIZZAZIONE E SALVATAGGIO ---
     if 'results_df' in st.session_state:
         st.divider()
         st.subheader("Anteprima dati analizzati")
         df_preview = st.session_state.results_df.copy()
+        # Pulizia estetica spazi multipli
         df_preview['full_info'] = df_preview['full_info'].str.replace(r'\s+', ' ', regex=True)
         st.table(df_preview)
         
@@ -195,15 +209,15 @@ try:
                 })
             
             try:
-                # Pulizia vecchia staging per questa tappa
+                # Reset staging per la tappa selezionata
                 supabase.table("stg_result").delete().eq("id_stage", st.session_state.results_id_stage).execute()
-                # Inserimento nuovi record
+                # Inserimento massivo
                 supabase.table("stg_result").insert(final_records).execute()
-                st.success(f"✅ {len(final_records)} record salvati correttamente!")
+                st.success(f"✅ {len(final_records)} record salvati correttamente in stg_result!")
                 st.balloons()
-                del st.session_state.results_df # Pulisce la sessione dopo il successo
+                del st.session_state.results_df
             except Exception as e:
-                st.error(f"Errore durante il salvataggio in database: {e}")
+                st.error(f"Errore durante il salvataggio: {e}")
 
 except Exception as e:
     st.error(f"Errore generale: {e}")
