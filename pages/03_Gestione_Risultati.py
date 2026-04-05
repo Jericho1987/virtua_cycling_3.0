@@ -1,6 +1,7 @@
 import streamlit as st
 from supabase import create_client
 from auth_utils import check_auth, render_sidebar, restore_session_from_cookie
+import re
 
 st.set_page_config(page_title="Gestione Risultati", layout="wide", page_icon="⚙️")
 
@@ -23,7 +24,7 @@ check_auth()
 render_sidebar()
 
 st.title("⚙️ Inserimento Risultati Ufficiali")
-st.caption("I dati salvati aggiornano le classifiche in tempo reale.")
+st.caption("Piattaforma di inserimento risultati. Gestione dinamica per Rank o Time Gap.")
 
 # --- 1. FILTRI DI SELEZIONE ---
 col1, col2 = st.columns(2)
@@ -57,33 +58,22 @@ else:
     id_type_race = res.data[0].get('id_type_race', 3) 
     
     st.subheader(f"Ordine d'arrivo: {sel_gara['name']}")
-    
+
     with st.form("form_gestione_risultati"):
-        # Header dinamico
-        if id_type_race == 3:
-            h1, h2, h3 = st.columns([3, 1, 1])
-        else:
-            # Più spazio per i due selettori minuti/secondi
-            h1, h2, h3 = st.columns([3, 2, 1])
-            
+        h1, h2, h3 = st.columns([3, 1, 1])
         h1.write("**Ciclista**")
-        h2.write("**Risultato**")
+        h2.write("**Posizione**" if id_type_race == 3 else "**Time Gap (MM:SS)**")
         h3.write("**Ritirato?**")
         
         for r in res.data:
-            if id_type_race == 3:
-                c1, c2, c3 = st.columns([3, 1, 1])
-            else:
-                c1, c2, c3 = st.columns([3, 2, 1])
-                
+            c1, c2, c3 = st.columns([3, 1, 1])
             c1.write(r['rider_name'])
             
-            # --- GESTIONE INPUT ---
             current_rank = None
             current_gap = None
 
             if id_type_race == 3:
-                # MODALITÀ POSIZIONE (Standard)
+                # MODALITÀ RANK (Identica a prima)
                 val_db = int(r['current_rank']) if r.get('current_rank') is not None else 0
                 nuovo_rank = c2.number_input(
                     f"R_{r['id_rider']}", min_value=0, max_value=999, value=min(val_db, 999),
@@ -92,21 +82,20 @@ else:
                 current_rank = nuovo_rank if nuovo_rank > 0 else None
             
             else:
-                # MODALITÀ TIME GAP (Guidata)
-                # Proviamo a splittare il gap esistente (formato "MM:SS")
-                gap_esistente = r.get('time_gap') or "00:00"
-                try:
-                    m_init, s_init = map(int, gap_esistente.split(':'))
-                except:
-                    m_init, s_init = 0, 0
-
-                # Creiamo due mini-colonne dentro la colonna c2
-                sub_min, sub_sec = c2.columns(2)
-                mins = sub_min.number_input("Min", 0, 500, m_init, key=f"min_{r['id_rider']}", label_visibility="collapsed")
-                secs = sub_sec.number_input("Sec", 0, 59, s_init, key=f"sec_{r['id_rider']}", label_visibility="collapsed")
+                # MODALITÀ TIME GAP (Cella Singola Testuale)
+                val_gap_db = r.get('time_gap') if r.get('time_gap') is not None else "00:00"
                 
-                # Formattiamo come stringa "MM:SS" (es. 02:05)
-                current_gap = f"{mins:02d}:{secs:02d}"
+                input_gap = c2.text_input(
+                    f"G_{r['id_rider']}", 
+                    value=val_gap_db,
+                    key=f"gap_{r['id_rider']}",
+                    label_visibility="collapsed",
+                    placeholder="MM:SS"
+                )
+                
+                # Semplice pulizia: se l'utente scrive "120" lo trasformiamo in "01:20" (opzionale)
+                # Per ora lo salviamo come stringa pulita
+                current_gap = input_gap.strip()
 
             is_dnf = c3.checkbox("DNF", key=f"dnf_{r['id_rider']}", value=r.get('is_dnf', False))
             
@@ -124,13 +113,24 @@ else:
 
     if invio:
         try:
-            response = supabase.table("fact_results").upsert(
-                lista_payload, on_conflict="id_stage, id_rider"
-            ).execute()
-            if response.data:
-                st.success(f"Aggiornati {len(response.data)} record.")
-                st.balloons()
-                st.rerun()
+            # Opzionale: Validazione formato MM:SS prima di inviare
+            formato_valido = True
+            if id_type_race != 3:
+                for p in lista_payload:
+                    if p["time_gap"] and not re.match(r"^\d+:[0-5]\d$", p["time_gap"]):
+                        st.error(f"Formato tempo errato per un ciclista: {p['time_gap']}. Usa MM:SS (es. 01:25)")
+                        formato_valido = False
+                        break
+            
+            if formato_valido:
+                response = supabase.table("fact_results").upsert(
+                    lista_payload, on_conflict="id_stage, id_rider"
+                ).execute()
+                
+                if response.data:
+                    st.success(f"✅ Dati aggiornati correttamente!")
+                    st.balloons()
+                    st.rerun()
         except Exception as e:
             st.error(f"Errore: {e}")
 
