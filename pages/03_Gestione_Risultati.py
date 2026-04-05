@@ -23,7 +23,7 @@ check_auth()
 render_sidebar()
 
 st.title("⚙️ Inserimento Risultati Ufficiali")
-st.caption("Piattaforma di inserimento per gli amministratori. I dati salvati aggiornano le classifiche in tempo reale.")
+st.caption("I dati salvati aggiornano le classifiche in tempo reale.")
 
 # --- 1. FILTRI DI SELEZIONE ---
 col1, col2 = st.columns(2)
@@ -43,7 +43,6 @@ with col2:
 st.divider()
 
 # --- 2. CARICAMENTO DATI DALLA VIEW ---
-# Nota: Assicurati che 'id_type_race' e 'time_gap' siano presenti nella view
 res = supabase.table("view_admin_riders_to_score")\
     .select("*")\
     .eq("id_stage", sel_tappa['id_stage'])\
@@ -52,66 +51,65 @@ res = supabase.table("view_admin_riders_to_score")\
 lista_payload = []
 
 if not res.data:
-    st.info(f"Nessun pick trovato per {sel_gara['name']} - Tappa {sel_tappa['id_stage_number']}. Assicurati che gli utenti abbiano inserito le formazioni.")
+    st.info(f"Nessun pick trovato per {sel_gara['name']}.")
 else:
-    # Identifichiamo il tipo di gara dal primo record disponibile
+    # Identifichiamo il tipo di gara
     id_type_race = res.data[0].get('id_type_race', 3) 
     
     st.subheader(f"Ordine d'arrivo: {sel_gara['name']}")
-    if id_type_race != 3:
-        st.info("Modalità Classifica Generale: Inserisci i distacchi temporali (Time Gap).")
-
+    
     with st.form("form_gestione_risultati"):
-        h1, h2, h3 = st.columns([3, 1, 1])
-        h1.write("**Ciclista (Scelto dagli utenti)**")
-        
-        # Header dinamico basato su id_type_race
+        # Header dinamico
         if id_type_race == 3:
-            h2.write("**Posizione Arrivo**")
+            h1, h2, h3 = st.columns([3, 1, 1])
         else:
-            h2.write("**Time Gap**")
+            # Più spazio per i due selettori minuti/secondi
+            h1, h2, h3 = st.columns([3, 2, 1])
             
+        h1.write("**Ciclista**")
+        h2.write("**Risultato**")
         h3.write("**Ritirato?**")
         
         for r in res.data:
-            c1, c2, c3 = st.columns([3, 1, 1])
+            if id_type_race == 3:
+                c1, c2, c3 = st.columns([3, 1, 1])
+            else:
+                c1, c2, c3 = st.columns([3, 2, 1])
+                
             c1.write(r['rider_name'])
             
-            # --- LOGICA DI INPUT DIFFERENZIATA ---
-            current_rank = 0
-            current_gap = ""
-            
+            # --- GESTIONE INPUT ---
+            current_rank = None
+            current_gap = None
+
             if id_type_race == 3:
-                # Logica Originale (ID 3)
+                # MODALITÀ POSIZIONE (Standard)
                 val_db = int(r['current_rank']) if r.get('current_rank') is not None else 0
-                val_iniziale = min(val_db, 999)
-                
-                nuovo_valore = c2.number_input(
-                    f"Rank {r['id_rider']}", 
-                    min_value=0, 
-                    max_value=999, 
-                    value=val_iniziale, 
-                    key=f"in_{r['id_rider']}", 
-                    label_visibility="collapsed"
+                nuovo_rank = c2.number_input(
+                    f"R_{r['id_rider']}", min_value=0, max_value=999, value=min(val_db, 999),
+                    key=f"in_{r['id_rider']}", label_visibility="collapsed"
                 )
-                current_rank = nuovo_valore if nuovo_valore > 0 else None
-                current_gap = None
+                current_rank = nuovo_rank if nuovo_rank > 0 else None
+            
             else:
-                # Nuova Logica (Diverso da 3)
-                val_gap_db = r.get('time_gap') if r.get('time_gap') is not None else ""
+                # MODALITÀ TIME GAP (Guidata)
+                # Proviamo a splittare il gap esistente (formato "MM:SS")
+                gap_esistente = r.get('time_gap') or "00:00"
+                try:
+                    m_init, s_init = map(int, gap_esistente.split(':'))
+                except:
+                    m_init, s_init = 0, 0
+
+                # Creiamo due mini-colonne dentro la colonna c2
+                sub_min, sub_sec = c2.columns(2)
+                mins = sub_min.number_input("Min", 0, 500, m_init, key=f"min_{r['id_rider']}", label_visibility="collapsed")
+                secs = sub_sec.number_input("Sec", 0, 59, s_init, key=f"sec_{r['id_rider']}", label_visibility="collapsed")
                 
-                current_gap = c2.text_input(
-                    f"Gap {r['id_rider']}", 
-                    value=val_gap_db,
-                    key=f"gap_{r['id_rider']}",
-                    label_visibility="collapsed",
-                    placeholder="00:00"
-                )
-                current_rank = None # O mantieni r['current_rank'] se serve comunque
+                # Formattiamo come stringa "MM:SS" (es. 02:05)
+                current_gap = f"{mins:02d}:{secs:02d}"
 
             is_dnf = c3.checkbox("DNF", key=f"dnf_{r['id_rider']}", value=r.get('is_dnf', False))
             
-            # Costruzione payload
             lista_payload.append({
                 "id_race": r['id_race'],
                 "id_stage": r['id_stage'],
@@ -124,26 +122,18 @@ else:
         
         invio = st.form_submit_button("💾 SALVA E AGGIORNA CLASSIFICHE", use_container_width=True, type="primary")
 
-    # --- 3. LOGICA DI SALVATAGGIO ---
     if invio:
         try:
-            # Assicurati che la tabella fact_results abbia la colonna time_gap
             response = supabase.table("fact_results").upsert(
-                lista_payload, 
-                on_conflict="id_stage, id_rider"
+                lista_payload, on_conflict="id_stage, id_rider"
             ).execute()
-            
             if response.data:
-                st.success(f"✅ Ottimo! Aggiornati {len(response.data)} record nel database.")
+                st.success(f"Aggiornati {len(response.data)} record.")
                 st.balloons()
                 st.rerun()
-            else:
-                st.error("Il database non ha confermato il salvataggio. Controlla le policy di sicurezza (RLS).")
-        
         except Exception as e:
-            st.error(f"Errore tecnico durante il salvataggio: {e}")
+            st.error(f"Errore: {e}")
 
-# --- 4. DEBUG ---
+# DEBUG
 with st.expander("Dati inviati (Debug)"):
-    if lista_payload:
-        st.json(lista_payload)
+    st.json(lista_payload)
