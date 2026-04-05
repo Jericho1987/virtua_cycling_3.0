@@ -49,10 +49,10 @@ lista_payload = []
 if not res.data:
     st.info("Nessun pick trovato per questa tappa.")
 else:
+    # Prendo il tipo gara dal primo record (nella tua view è id_type_race)
     id_type_race = res.data[0].get('id_type_race', 3) 
     
     with st.form("form_gestione_results"):
-        # Layout colonne
         if id_type_race == 3:
             h1, h2, h3 = st.columns([3, 1.5, 1])
         else:
@@ -77,31 +77,33 @@ else:
                 
             c1.write(r['rider_name'])
             
-            # --- RANK_STAGE ---
-            val_rank_db = int(r['rank_stage']) if r.get('rank_stage') is not None else (int(r['current_rank']) if r.get('current_rank') is not None else 0)
+            # --- POSIZIONE (RANK) ---
+            # Uso 'current_rank' che è il nome che hai dato nella VIEW
+            val_rank_db = int(r['current_rank']) if r.get('current_rank') is not None else 0
+            
             nuovo_rank = c2.number_input(
                 f"R_{r['id_rider']}", 0, 999, min(val_rank_db, 999), 
                 step=1, key=f"in_rank_{r['id_rider']}", label_visibility="collapsed"
             )
             
-            # --- GAP_STAGE (Interval HH:MM:SS) ---
+            # --- DISTACCO (GAP) ---
             current_gap = '00:00:00'
+            m_val, s_val = 0, 0 
+            
             if id_type_race != 3:
-                # RECUPERO DATI ESISTENTI DA DB
                 raw_gap = r.get('gap_stage')
-                m_val, s_val = 0, 0 
-                
                 if raw_gap:
                     try:
-                        # Gestisce formati HH:MM:SS, MM:SS o SSSS restituite da Postgres
-                        parts = str(raw_gap).split(':')
-                        if len(parts) >= 3:
+                        # Rimuoviamo eventuali millisecondi e splitiamo
+                        gap_clean = str(raw_gap).split('.')[0]
+                        parts = gap_clean.split(':')
+                        if len(parts) >= 3: # HH:MM:SS
                             m_val = int(parts[-2])
                             s_val = int(parts[-1])
-                        elif len(parts) == 2:
+                        elif len(parts) == 2: # MM:SS
                             m_val = int(parts[0])
                             s_val = int(parts[1])
-                    except (ValueError, IndexError):
+                    except:
                         m_val, s_val = 0, 0
 
                 col_min, col_sec = c3.columns(2)
@@ -109,8 +111,9 @@ else:
                 sel_s = col_sec.number_input(f"s_{r['id_rider']}", 0, 59, s_val, step=1, format="%02d", key=f"s_{r['id_rider']}", label_visibility="collapsed")
                 current_gap = f"00:{sel_m:02d}:{sel_s:02d}"
 
-            # --- IS_DNF ---
+            # --- RITIRO (DNF) ---
             c_last = c3 if id_type_race == 3 else c4
+            # Nota: assicurati che la view sputi anche 'is_dnf', altrimenti aggiungila alla view
             is_dnf = c_last.checkbox("Ritr.", key=f"dnf_{r['id_rider']}", value=r.get('is_dnf', False))
             
             lista_payload.append({
@@ -134,11 +137,10 @@ else:
             ).execute()
             
             if response.data:
-                st.success(f"✅ Classifica aggiornata correttamente!")
+                st.success(f"✅ Risultati salvati!")
                 st.rerun()
         except Exception as e:
-            st.error(f"Errore tecnico: {e}")
+            st.error(f"Errore: {e}")
 
-# DEBUG
-with st.expander("Ispeziona Payload (PostgreSQL Interval Format)"):
-    st.json(lista_payload)
+with st.expander("Ispeziona Dati View (Debug)"):
+    st.write(res.data)
