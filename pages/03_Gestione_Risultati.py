@@ -20,7 +20,7 @@ check_auth()
 render_sidebar()
 
 st.title("⚙️ Inserimento Risultati Ufficiali")
-st.caption("Step 2: Inserimento Rank + Time Gap con controlli +/- attivi.")
+st.caption("Allineato allo schema public.fact_results (gap_stage as interval)")
 
 # --- 1. FILTRI DI SELEZIONE ---
 col1, col2 = st.columns(2)
@@ -39,6 +39,7 @@ with col2:
 st.divider()
 
 # --- 2. CARICAMENTO DATI ---
+# Nota: assicurati che la view carichi gap_stage (se già presente)
 res = supabase.table("view_admin_riders_to_score")\
     .select("*")\
     .eq("id_stage", sel_tappa['id_stage'])\
@@ -47,19 +48,19 @@ res = supabase.table("view_admin_riders_to_score")\
 lista_payload = []
 
 if not res.data:
-    st.info("Nessun dato trovato.")
+    st.info("Nessun pick trovato per questa tappa.")
 else:
     id_type_race = res.data[0].get('id_type_race', 3) 
     
     with st.form("form_gestione_results"):
-        # Layout differenziato per dare spazio ai tasti +/-
+        # Layout colonne
         if id_type_race == 3:
             h1, h2, h3 = st.columns([3, 1.5, 1])
         else:
             h1, h2, h3, h4 = st.columns([3, 1.2, 2.5, 1])
             
         h1.write("**Ciclista**")
-        h2.write("**Posizione**")
+        h2.write("**Posizione (Rank)**")
         
         if id_type_race != 3:
             sub_h_gap = h3.columns(2)
@@ -77,46 +78,63 @@ else:
                 
             c1.write(r['rider_name'])
             
-            # --- RANK (Sempre con +/-) ---
-            val_rank_db = int(r['current_rank']) if r.get('current_rank') is not None else 0
+            # --- RANK_STAGE ---
+            val_rank_db = int(r['rank_stage']) if r.get('rank_stage') is not None else (int(r['current_rank']) if r.get('current_rank') is not None else 0)
             nuovo_rank = c2.number_input(
                 f"R_{r['id_rider']}", 0, 999, min(val_rank_db, 999), 
-                step=1, # Abilita i tasti +/-
-                key=f"in_rank_{r['id_rider']}", label_visibility="collapsed"
+                step=1, key=f"in_rank_{r['id_rider']}", label_visibility="collapsed"
             )
             
-            current_rank = nuovo_rank if nuovo_rank > 0 else None
-            current_gap = None
-
-            # --- TIME GAP (Solo se ID != 3) ---
+            # --- GAP_STAGE (Interval HH:MM:SS) ---
+            current_gap = '00:00:00'
             if id_type_race != 3:
-                gap_db = r.get('time_gap') or "00:00"
+                # Proviamo a estrarre minuti e secondi dal gap esistente
+                raw_gap = r.get('gap_stage') or "00:00:00"
+                # PostgreSQL può restituire '00:02:15' o altri formati, semplifichiamo:
                 try:
-                    m_val, s_val = map(int, gap_db.split(':'))
+                    parts = raw_gap.split(':')
+                    m_val = int(parts[-2]) if len(parts) >= 2 else 0
+                    s_val = int(parts[-1]) if len(parts) >= 1 else 0
                 except:
                     m_val, s_val = 0, 0
 
                 col_min, col_sec = c3.columns(2)
-                # I tasti +/- appaiono automaticamente con step=1
                 sel_m = col_min.number_input(f"m_{r['id_rider']}", 0, 59, m_val, step=1, format="%02d", key=f"m_{r['id_rider']}", label_visibility="collapsed")
                 sel_s = col_sec.number_input(f"s_{r['id_rider']}", 0, 59, s_val, step=1, format="%02d", key=f"s_{r['id_rider']}", label_visibility="collapsed")
-                current_gap = f"{sel_m:02d}:{sel_s:02d}"
+                # Formattiamo per il tipo INTERVAL di Postgres
+                current_gap = f"00:{sel_m:02d}:{sel_s:02d}"
 
-            # --- DNF ---
+            # --- IS_DNF ---
             c_last = c3 if id_type_race == 3 else c4
             is_dnf = c_last.checkbox("Ritr.", key=f"dnf_{r['id_rider']}", value=r.get('is_dnf', False))
             
             lista_payload.append({
-                "id_race": r['id_race'], "id_stage": r['id_stage'], "id_rider": r['id_rider'],
-                "id_team": r['id_team'], "rank_stage": current_rank, "time_gap": current_gap, "is_dnf": is_dnf
+                "id_race": r['id_race'],
+                "id_stage": r['id_stage'],
+                "id_rider": r['id_rider'],
+                "id_team": r['id_team'],
+                "rank_stage": nuovo_rank if nuovo_rank > 0 else None,
+                "gap_stage": current_gap, # Formato 00:MM:SS
+                "is_dnf": is_dnf,
+                "updated_at": "now()" # Forza l'aggiornamento del timestamp
             })
         
-        invio = st.form_submit_button("💾 SALVA E AGGIORNA TUTTO", use_container_width=True, type="primary")
+        invio = st.form_submit_button("💾 SALVA E AGGIORNA RISULTATI", use_container_width=True, type="primary")
 
     if invio:
         try:
-            supabase.table("fact_results").upsert(lista_payload, on_conflict="id_stage, id_rider").execute()
-            st.success("Dati salvati!")
-            st.rerun()
+            # Upsert basato sul vincolo unique_result_stage_rider (id_stage, id_rider)
+            response = supabase.table("fact_results").upsert(
+                lista_payload, 
+                on_conflict="id_stage, id_rider"
+            ).execute()
+            
+            if response.data:
+                st.success(f"✅ Classifica aggiornata correttamente!")
+                st.rerun()
         except Exception as e:
-            st.error(f"Errore: {e}")
+            st.error(f"Errore tecnico: {e}")
+
+# DEBUG
+with st.expander("Ispeziona Payload (PostgreSQL Interval Format)"):
+    st.json(lista_payload)
