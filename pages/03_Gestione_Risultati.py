@@ -9,25 +9,21 @@ url = st.secrets["SUPABASE_URL"]
 key = st.secrets["SUPABASE_KEY"]
 supabase = create_client(url, key)
 
-# --- RIPRISTINO SESSIONE ---
 restore_session_from_cookie(supabase)
 
-# --- CONTROLLO AUTH ---
 if not st.session_state.get("id_user_loggato"):
     st.warning("Sessione scaduta. Torna alla Home.")
     st.switch_page("Home.py")
     st.stop()
 
-# --- PROTEZIONE E SIDEBAR ---
 check_auth()
 render_sidebar()
 
 st.title("⚙️ Inserimento Risultati Ufficiali")
-st.caption("Inserimento rapido: digita il numero e premi Tab per passare al campo successivo.")
+st.caption("Step 2: Inserimento combinato Posizione + Time Gap per corse a tappe.")
 
 # --- 1. FILTRI DI SELEZIONE ---
 col1, col2 = st.columns(2)
-
 with col1:
     gare = supabase.table("dim_race").select("id_race, name").execute().data
     sel_gara = st.selectbox("Gara", gare, format_func=lambda x: x['name'], key="sb_gara")
@@ -42,7 +38,7 @@ with col2:
 
 st.divider()
 
-# --- 2. CARICAMENTO DATI DALLA VIEW ---
+# --- 2. CARICAMENTO DATI ---
 res = supabase.table("view_admin_riders_to_score")\
     .select("*")\
     .eq("id_stage", sel_tappa['id_stage'])\
@@ -51,77 +47,66 @@ res = supabase.table("view_admin_riders_to_score")\
 lista_payload = []
 
 if not res.data:
-    st.info(f"Nessun dato trovato per questa selezione.")
+    st.info("Nessun dato trovato per questa selezione.")
 else:
     id_type_race = res.data[0].get('id_type_race', 3) 
     
     st.subheader(f"Ordine d'arrivo: {sel_gara['name']}")
 
     with st.form("form_gestione_results"):
-        h1, h2, h3 = st.columns([3, 2, 1])
+        # Definiamo le colonne in base al tipo di gara
+        if id_type_race == 3:
+            h1, h2, h3 = st.columns([3, 1, 1])
+        else:
+            h1, h2, h3, h4 = st.columns([3, 1, 2, 1]) # Più spazio per i 3 input
+            
         h1.write("**Ciclista**")
         
         if id_type_race == 3:
-            h2.write("**Posizione Arrivo**")
+            h2.write("**Posizione**")
         else:
-            sub_h1, sub_h2 = h2.columns(2)
-            sub_h1.write("**Minuti**")
-            sub_h2.write("**Secondi**")
+            h2.write("**Posizione**")
+            sub_h_gap = h3.columns(2)
+            sub_h_gap[0].caption("Minuti")
+            sub_h_gap[1].caption("Secondi")
             
-        h3.write("**Ritirato?**")
+        h_last = h3 if id_type_race == 3 else h4
+        h_last.write("**Ritirato?**")
         
         for r in res.data:
-            c1, c2, c3 = st.columns([3, 2, 1])
+            if id_type_race == 3:
+                c1, c2, c3 = st.columns([3, 1, 1])
+            else:
+                c1, c2, c3, c4 = st.columns([3, 1, 2, 1])
+                
             c1.write(r['rider_name'])
             
-            current_rank = None
+            # --- GESTIONE POSIZIONE (Sempre presente) ---
+            val_rank_db = int(r['current_rank']) if r.get('current_rank') is not None else 0
+            nuovo_rank = c2.number_input(
+                f"R_{r['id_rider']}", 0, 999, min(val_rank_db, 999), 
+                key=f"in_rank_{r['id_rider']}", label_visibility="collapsed"
+            )
+            
+            current_rank = nuovo_rank if nuovo_rank > 0 else None
             current_gap = None
 
-            if id_type_race == 3:
-                # --- MODALITÀ POSIZIONE ---
-                val_db = int(r['current_rank']) if r.get('current_rank') is not None else 0
-                nuovo_rank = c2.number_input(
-                    f"R_{r['id_rider']}", 
-                    min_value=0, max_value=999, 
-                    value=min(val_db, 999), 
-                    key=f"in_{r['id_rider']}", 
-                    label_visibility="collapsed"
-                )
-                current_rank = nuovo_rank if nuovo_rank > 0 else None
-            
-            else:
-                # --- MODALITÀ TIME GAP (Number Input con formattazione 00) ---
+            # --- GESTIONE TIME GAP (Solo se ID != 3) ---
+            if id_type_race != 3:
                 gap_db = r.get('time_gap') or "00:00"
                 try:
-                    m_db_str, s_db_str = gap_db.split(':')
-                    m_val, s_val = int(m_db_str), int(s_db_str)
+                    m_val, s_val = map(int, gap_db.split(':'))
                 except:
                     m_val, s_val = 0, 0
 
-                col_min, col_sec = c2.columns(2)
-                
-                # Usiamo format="%02d" per mostrare sempre due cifre
-                sel_m = col_min.number_input(
-                    f"m_{r['id_rider']}", 
-                    min_value=0, max_value=59, 
-                    value=m_val,
-                    format="%02d",
-                    key=f"m_{r['id_rider']}",
-                    label_visibility="collapsed"
-                )
-                
-                sel_s = col_sec.number_input(
-                    f"s_{r['id_rider']}", 
-                    min_value=0, max_value=59, 
-                    value=s_val,
-                    format="%02d",
-                    key=f"s_{r['id_rider']}",
-                    label_visibility="collapsed"
-                )
-                
+                col_min, col_sec = c3.columns(2)
+                sel_m = col_min.number_input(f"m_{r['id_rider']}", 0, 59, m_val, format="%02d", key=f"m_{r['id_rider']}", label_visibility="collapsed")
+                sel_s = col_sec.number_input(f"s_{r['id_rider']}", 0, 59, s_val, format="%02d", key=f"s_{r['id_rider']}", label_visibility="collapsed")
                 current_gap = f"{sel_m:02d}:{sel_s:02d}"
 
-            is_dnf = c3.checkbox("DNF", key=f"dnf_{r['id_rider']}", value=r.get('is_dnf', False))
+            # --- GESTIONE RITIRATO ---
+            c_last = c3 if id_type_race == 3 else c4
+            is_dnf = c_last.checkbox("DNF", key=f"dnf_{r['id_rider']}", value=r.get('is_dnf', False))
             
             lista_payload.append({
                 "id_race": r['id_race'],
@@ -137,18 +122,12 @@ else:
 
     if invio:
         try:
-            response = supabase.table("fact_results").upsert(
-                lista_payload, 
-                on_conflict="id_stage, id_rider"
-            ).execute()
-            
-            if response.data:
-                st.success(f"✅ Dati salvati con successo!")
-                st.rerun()
+            supabase.table("fact_results").upsert(lista_payload, on_conflict="id_stage, id_rider").execute()
+            st.success("✅ Risultati e Distacchi salvati!")
+            st.rerun()
         except Exception as e:
             st.error(f"Errore: {e}")
 
-# --- DEBUG ---
+# DEBUG
 with st.expander("Dati inviati (Debug)"):
-    if lista_payload:
-        st.json(lista_payload)
+    st.json(lista_payload)
