@@ -22,22 +22,27 @@ render_sidebar()
 st.title("⚙️ Inserimento Risultati Ufficiali")
 st.caption("Allineato allo schema public.fact_results (gap_stage as interval)")
 
+# --- Funzione di Reset ---
+def reset_tappa():
+    # Eliminiamo la chiave del widget della tappa dal session_state
+    # Questo forzerà il selectbox a tornare al primo elemento della nuova lista
+    if "sb_tappa" in st.session_state:
+        del st.session_state["sb_tappa"]
+
 # --- 1. FILTRI DI SELEZIONE ---
 col1, col2 = st.columns(2)
 
 with col1:
     gare = supabase.table("dim_race").select("id_race, name").execute().data
-    # Se cambiamo gara, resettiamo la tappa nel session_state
     sel_gara = st.selectbox(
         "Gara", 
         gare, 
         format_func=lambda x: x['name'], 
         key="sb_gara",
-        on_change=lambda: st.session_state.update({"sb_tappa_idx": 0}) # Reset all'indice 0 (Tappa 1)
+        on_change=reset_tappa  # <--- Al cambio gara, esegue il reset
     )
 
 with col2:
-    # Recuperiamo le tappe della gara selezionata
     tappe = supabase.table("dim_race_stage")\
         .select("id_stage, id_stage_number")\
         .eq("id_race", sel_gara['id_race'])\
@@ -45,19 +50,14 @@ with col2:
         .execute().data
     
     if tappe:
-        # Usiamo un indice salvato nel session_state per forzare la Tappa 1 al cambio gara
-        if "sb_tappa_idx" not in st.session_state:
-            st.session_state.sb_tappa_idx = 0
-            
+        # Usando 'key', Streamlit gestisce la selezione. 
+        # Quando resettiamo la chiave in reset_tappa(), lui riparte dal primo.
         sel_tappa = st.selectbox(
             "Tappa", 
             tappe, 
-            index=st.session_state.sb_tappa_idx,
             format_func=lambda x: f"Tappa {x['id_stage_number']}", 
-            key="sb_tappa_widget"
+            key="sb_tappa"
         )
-        # Aggiorniamo l'indice se l'utente cambia manualmente la tappa
-        st.session_state.sb_tappa_idx = tappe.index(sel_tappa)
     else:
         st.info("Nessuna tappa trovata per questa gara.")
         st.stop()
