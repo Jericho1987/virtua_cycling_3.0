@@ -22,15 +22,8 @@ if not st.session_state.get("id_user_loggato"):
 check_auth()
 render_sidebar()
 
-# --- PREPARAZIONE OPZIONI (0-59 come interi) ---
-opzioni_numeriche = list(range(60))
-
-# Funzione per mostrare i numeri con lo zero davanti (es: 3 -> "03")
-def formatta_due_cifre(n):
-    return f"{n:02d}"
-
 st.title("⚙️ Inserimento Risultati Ufficiali")
-st.caption("Usa la tastiera per saltare rapidamente al valore desiderato (es. premi '3' per 03).")
+st.caption("Inserimento rapido: digita il numero e premi Tab per passare al campo successivo.")
 
 # --- 1. FILTRI DI SELEZIONE ---
 col1, col2 = st.columns(2)
@@ -72,8 +65,8 @@ else:
             h2.write("**Posizione Arrivo**")
         else:
             sub_h1, sub_h2 = h2.columns(2)
-            sub_h1.caption("Minuti")
-            sub_h2.caption("Secondi")
+            sub_h1.write("**Minuti**")
+            sub_h2.write("**Secondi**")
             
         h3.write("**Ritirato?**")
         
@@ -97,7 +90,7 @@ else:
                 current_rank = nuovo_rank if nuovo_rank > 0 else None
             
             else:
-                # --- MODALITÀ TIME GAP (Correzione tastiera) ---
+                # --- MODALITÀ TIME GAP (Number Input con formattazione 00) ---
                 gap_db = r.get('time_gap') or "00:00"
                 try:
                     m_db_str, s_db_str = gap_db.split(':')
@@ -107,25 +100,25 @@ else:
 
                 col_min, col_sec = c2.columns(2)
                 
-                sel_m = col_min.selectbox(
+                # Usiamo format="%02d" per mostrare sempre due cifre
+                sel_m = col_min.number_input(
                     f"m_{r['id_rider']}", 
-                    options=opzioni_numeriche, 
-                    index=m_val if m_val < 60 else 0,
-                    format_func=formatta_due_cifre, # <--- La magia è qui
+                    min_value=0, max_value=59, 
+                    value=m_val,
+                    format="%02d",
                     key=f"m_{r['id_rider']}",
                     label_visibility="collapsed"
                 )
                 
-                sel_s = col_sec.selectbox(
+                sel_s = col_sec.number_input(
                     f"s_{r['id_rider']}", 
-                    options=opzioni_numeriche, 
-                    index=s_val if s_val < 60 else 0,
-                    format_func=formatta_due_cifre, # <--- La magia è qui
+                    min_value=0, max_value=59, 
+                    value=s_val,
+                    format="%02d",
                     key=f"s_{r['id_rider']}",
                     label_visibility="collapsed"
                 )
                 
-                # Ricomponiamo la stringa nel formato corretto per il DB
                 current_gap = f"{sel_m:02d}:{sel_s:02d}"
 
             is_dnf = c3.checkbox("DNF", key=f"dnf_{r['id_rider']}", value=r.get('is_dnf', False))
@@ -150,7 +143,7 @@ else:
             ).execute()
             
             if response.data:
-                st.success(f"✅ Dati salvati! Aggiornati {len(response.data)} record.")
+                st.success(f"✅ Dati salvati con successo!")
                 st.rerun()
         except Exception as e:
             st.error(f"Errore: {e}")
