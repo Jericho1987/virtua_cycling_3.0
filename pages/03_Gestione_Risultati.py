@@ -43,49 +43,82 @@ with col2:
 st.divider()
 
 # --- 2. CARICAMENTO DATI DALLA VIEW ---
+# Nota: Assicurati che 'id_type_race' e 'time_gap' siano presenti nella view
 res = supabase.table("view_admin_riders_to_score")\
     .select("*")\
     .eq("id_stage", sel_tappa['id_stage'])\
     .execute()
 
-# Inizializziamo sempre lista_payload
 lista_payload = []
 
 if not res.data:
     st.info(f"Nessun pick trovato per {sel_gara['name']} - Tappa {sel_tappa['id_stage_number']}. Assicurati che gli utenti abbiano inserito le formazioni.")
 else:
+    # Identifichiamo il tipo di gara dal primo record disponibile
+    id_type_race = res.data[0].get('id_type_race', 3) 
+    
     st.subheader(f"Ordine d'arrivo: {sel_gara['name']}")
+    if id_type_race != 3:
+        st.info("Modalità Classifica Generale: Inserisci i distacchi temporali (Time Gap).")
 
     with st.form("form_gestione_risultati"):
         h1, h2, h3 = st.columns([3, 1, 1])
         h1.write("**Ciclista (Scelto dagli utenti)**")
-        h2.write("**Posizione Arrivo**")
+        
+        # Header dinamico basato su id_type_race
+        if id_type_race == 3:
+            h2.write("**Posizione Arrivo**")
+        else:
+            h2.write("**Time Gap**")
+            
         h3.write("**Ritirato?**")
         
         for r in res.data:
             c1, c2, c3 = st.columns([3, 1, 1])
             c1.write(r['rider_name'])
             
-            val_db = int(r['current_rank']) if r['current_rank'] is not None else 0
-            val_iniziale = min(val_db, 999)
+            # --- LOGICA DI INPUT DIFFERENZIATA ---
+            current_rank = 0
+            current_gap = ""
             
-            nuovo_rank = c2.number_input(
-                f"Rank {r['id_rider']}", 
-                min_value=0, 
-                max_value=999, 
-                value=val_iniziale, 
-                key=f"in_{r['id_rider']}", 
-                label_visibility="collapsed"
-            )
+            if id_type_race == 3:
+                # Logica Originale (ID 3)
+                val_db = int(r['current_rank']) if r.get('current_rank') is not None else 0
+                val_iniziale = min(val_db, 999)
+                
+                nuovo_valore = c2.number_input(
+                    f"Rank {r['id_rider']}", 
+                    min_value=0, 
+                    max_value=999, 
+                    value=val_iniziale, 
+                    key=f"in_{r['id_rider']}", 
+                    label_visibility="collapsed"
+                )
+                current_rank = nuovo_valore if nuovo_valore > 0 else None
+                current_gap = None
+            else:
+                # Nuova Logica (Diverso da 3)
+                val_gap_db = r.get('time_gap') if r.get('time_gap') is not None else ""
+                
+                current_gap = c2.text_input(
+                    f"Gap {r['id_rider']}", 
+                    value=val_gap_db,
+                    key=f"gap_{r['id_rider']}",
+                    label_visibility="collapsed",
+                    placeholder="00:00"
+                )
+                current_rank = None # O mantieni r['current_rank'] se serve comunque
+
+            is_dnf = c3.checkbox("DNF", key=f"dnf_{r['id_rider']}", value=r.get('is_dnf', False))
             
-            is_dnf = c3.checkbox("DNF", key=f"dnf_{r['id_rider']}")
-            
+            # Costruzione payload
             lista_payload.append({
                 "id_race": r['id_race'],
                 "id_stage": r['id_stage'],
                 "id_rider": r['id_rider'],
                 "id_team": r['id_team'],
-                "rank_stage": nuovo_rank if nuovo_rank > 0 else None,
+                "rank_stage": current_rank,
+                "time_gap": current_gap,
                 "is_dnf": is_dnf
             })
         
@@ -94,6 +127,7 @@ else:
     # --- 3. LOGICA DI SALVATAGGIO ---
     if invio:
         try:
+            # Assicurati che la tabella fact_results abbia la colonna time_gap
             response = supabase.table("fact_results").upsert(
                 lista_payload, 
                 on_conflict="id_stage, id_rider"
