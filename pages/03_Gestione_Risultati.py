@@ -29,16 +29,23 @@ with col1:
     sel_gara = st.selectbox("Gara", gare, format_func=lambda x: x['name'], key="sb_gara")
 
 with col2:
+    # Quando la gara cambia, questa query si aggiorna automaticamente
     tappe = supabase.table("dim_race_stage")\
         .select("id_stage, id_stage_number")\
         .eq("id_race", sel_gara['id_race'])\
         .order("id_stage_number")\
         .execute().data
-    sel_tappa = st.selectbox("Tappa", tappe, format_func=lambda x: f"Tappa {x['id_stage_number']}", key="sb_tappa")
+    
+    if tappe:
+        sel_tappa = st.selectbox("Tappa", tappe, format_func=lambda x: f"Tappa {x['id_stage_number']}", key="sb_tappa")
+    else:
+        st.info("Nessuna tappa trovata per questa gara.")
+        st.stop()
 
 st.divider()
 
 # --- 2. CARICAMENTO DATI ---
+# Questa parte ora dipende direttamente da sel_tappa, che si aggiorna appena cambia la gara
 res = supabase.table("view_admin_riders_to_score")\
     .select("*")\
     .eq("id_stage", sel_tappa['id_stage'])\
@@ -47,12 +54,11 @@ res = supabase.table("view_admin_riders_to_score")\
 lista_payload = []
 
 if not res.data:
-    st.info("Nessun pick trovato per questa tappa.")
+    st.info(f"Nessun pick trovato per la Tappa {sel_tappa['id_stage_number']}.")
 else:
     id_type_race = res.data[0].get('id_type_race', 3) 
     
     with st.form("form_gestione_results"):
-        # Layout colonne
         if id_type_race == 3:
             h1, h2, h3 = st.columns([3, 1.5, 1])
         else:
@@ -78,7 +84,6 @@ else:
             c1.write(r['rider_name'])
             
             # --- POSIZIONE (RANK) ---
-            # Utilizziamo 'current_rank' come definito nella tua VIEW
             val_rank_db = int(r['current_rank']) if r.get('current_rank') is not None else 0
             nuovo_rank = c2.number_input(
                 f"R_{r['id_rider']}", 0, 999, min(val_rank_db, 999), 
@@ -93,14 +98,12 @@ else:
                 raw_gap = r.get('gap_stage')
                 if raw_gap:
                     try:
-                        # Gestione se l'oggetto arriva come timedelta (tipico di Postgres Interval)
                         if hasattr(raw_gap, 'total_seconds'):
                             tot_seconds = int(raw_gap.total_seconds())
                             m_val = (tot_seconds // 60) % 60
                             s_val = tot_seconds % 60
                         else:
-                            # Gestione se arriva come stringa (es. "00:00:15")
-                            gap_clean = str(raw_gap).split('.')[0] # Rimuove eventuali millisecondi
+                            gap_clean = str(raw_gap).split('.')[0]
                             parts = gap_clean.split(':')
                             if len(parts) >= 3:
                                 m_val = int(parts[-2])
@@ -116,7 +119,6 @@ else:
                 col_min, col_sec = c3.columns(2)
                 sel_m = col_min.number_input(f"m_{r['id_rider']}", 0, 59, int(m_val), step=1, format="%02d", key=f"m_{r['id_rider']}", label_visibility="collapsed")
                 sel_s = col_sec.number_input(f"s_{r['id_rider']}", 0, 59, int(s_val), step=1, format="%02d", key=f"s_{r['id_rider']}", label_visibility="collapsed")
-                # Formattazione per il payload verso Postgres
                 current_gap = f"00:{sel_m:02d}:{sel_s:02d}"
 
             # --- RITIRO (DNF) ---
@@ -147,7 +149,7 @@ else:
                 st.success(f"✅ Risultati aggiornati con successo!")
                 st.rerun()
         except Exception as e:
-            st.error(f"Errore durante il salvataggio: {e}")
+            st.error(f"Errore: {e}")
 
 # DEBUG
 with st.expander("Ispeziona Dati Grezzi (Debug)"):
