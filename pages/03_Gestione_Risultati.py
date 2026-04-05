@@ -22,11 +22,15 @@ if not st.session_state.get("id_user_loggato"):
 check_auth()
 render_sidebar()
 
-# --- PREPARAZIONE OPZIONI (00-59) ---
-opzioni_60 = [f"{i:02d}" for i in range(60)]
+# --- PREPARAZIONE OPZIONI (0-59 come interi) ---
+opzioni_numeriche = list(range(60))
+
+# Funzione per mostrare i numeri con lo zero davanti (es: 3 -> "03")
+def formatta_due_cifre(n):
+    return f"{n:02d}"
 
 st.title("⚙️ Inserimento Risultati Ufficiali")
-st.caption("Gestione differenziata: Rank per corse in linea (ID 3), Time Gap per classifiche generali.")
+st.caption("Usa la tastiera per saltare rapidamente al valore desiderato (es. premi '3' per 03).")
 
 # --- 1. FILTRI DI SELEZIONE ---
 col1, col2 = st.columns(2)
@@ -56,20 +60,17 @@ lista_payload = []
 if not res.data:
     st.info(f"Nessun dato trovato per questa selezione.")
 else:
-    # Identifichiamo il tipo di gara (assumiamo sia uguale per tutti i record della stessa tappa)
     id_type_race = res.data[0].get('id_type_race', 3) 
     
     st.subheader(f"Ordine d'arrivo: {sel_gara['name']}")
 
-    with st.form("form_gestione_risultati"):
-        # Header della tabella
+    with st.form("form_gestione_results"):
         h1, h2, h3 = st.columns([3, 2, 1])
         h1.write("**Ciclista**")
         
         if id_type_race == 3:
             h2.write("**Posizione Arrivo**")
         else:
-            # Sotto-header per minuti e secondi
             sub_h1, sub_h2 = h2.columns(2)
             sub_h1.caption("Minuti")
             sub_h2.caption("Secondi")
@@ -84,7 +85,7 @@ else:
             current_gap = None
 
             if id_type_race == 3:
-                # --- MODALITÀ POSIZIONE (ID 3) ---
+                # --- MODALITÀ POSIZIONE ---
                 val_db = int(r['current_rank']) if r.get('current_rank') is not None else 0
                 nuovo_rank = c2.number_input(
                     f"R_{r['id_rider']}", 
@@ -96,33 +97,36 @@ else:
                 current_rank = nuovo_rank if nuovo_rank > 0 else None
             
             else:
-                # --- MODALITÀ TIME GAP (DIVERSO DA 3) ---
-                # Default 00:00 se non presente nel DB
+                # --- MODALITÀ TIME GAP (Correzione tastiera) ---
                 gap_db = r.get('time_gap') or "00:00"
                 try:
-                    m_db, s_db = gap_db.split(':')
+                    m_db_str, s_db_str = gap_db.split(':')
+                    m_val, s_val = int(m_db_str), int(s_db_str)
                 except:
-                    m_db, s_db = "00", "00"
+                    m_val, s_val = 0, 0
 
                 col_min, col_sec = c2.columns(2)
                 
                 sel_m = col_min.selectbox(
                     f"m_{r['id_rider']}", 
-                    options=opzioni_60, 
-                    index=opzioni_60.index(m_db) if m_db in opzioni_60 else 0,
+                    options=opzioni_numeriche, 
+                    index=m_val if m_val < 60 else 0,
+                    format_func=formatta_due_cifre, # <--- La magia è qui
                     key=f"m_{r['id_rider']}",
                     label_visibility="collapsed"
                 )
                 
                 sel_s = col_sec.selectbox(
                     f"s_{r['id_rider']}", 
-                    options=opzioni_60, 
-                    index=opzioni_60.index(s_db) if s_db in opzioni_60 else 0,
+                    options=opzioni_numeriche, 
+                    index=s_val if s_val < 60 else 0,
+                    format_func=formatta_due_cifre, # <--- La magia è qui
                     key=f"s_{r['id_rider']}",
                     label_visibility="collapsed"
                 )
                 
-                current_gap = f"{sel_m}:{sel_s}"
+                # Ricomponiamo la stringa nel formato corretto per il DB
+                current_gap = f"{sel_m:02d}:{sel_s:02d}"
 
             is_dnf = c3.checkbox("DNF", key=f"dnf_{r['id_rider']}", value=r.get('is_dnf', False))
             
@@ -146,13 +150,12 @@ else:
             ).execute()
             
             if response.data:
-                st.success(f"✅ Aggiornati {len(response.data)} record correttamente.")
-                st.balloons()
+                st.success(f"✅ Dati salvati! Aggiornati {len(response.data)} record.")
                 st.rerun()
         except Exception as e:
-            st.error(f"Errore durante il salvataggio: {e}")
+            st.error(f"Errore: {e}")
 
-# --- 4. DEBUG ---
+# --- DEBUG ---
 with st.expander("Dati inviati (Debug)"):
     if lista_payload:
         st.json(lista_payload)
