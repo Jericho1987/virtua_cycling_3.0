@@ -39,7 +39,6 @@ with col2:
 st.divider()
 
 # --- 2. CARICAMENTO DATI ---
-# Nota: assicurati che la view carichi gap_stage (se già presente)
 res = supabase.table("view_admin_riders_to_score")\
     .select("*")\
     .eq("id_stage", sel_tappa['id_stage'])\
@@ -88,20 +87,26 @@ else:
             # --- GAP_STAGE (Interval HH:MM:SS) ---
             current_gap = '00:00:00'
             if id_type_race != 3:
-                # Proviamo a estrarre minuti e secondi dal gap esistente
-                raw_gap = r.get('gap_stage') or "00:00:00"
-                # PostgreSQL può restituire '00:02:15' o altri formati, semplifichiamo:
-                try:
-                    parts = raw_gap.split(':')
-                    m_val = int(parts[-2]) if len(parts) >= 2 else 0
-                    s_val = int(parts[-1]) if len(parts) >= 1 else 0
-                except:
-                    m_val, s_val = 0, 0
+                # RECUPERO DATI ESISTENTI DA DB
+                raw_gap = r.get('gap_stage')
+                m_val, s_val = 0, 0 
+                
+                if raw_gap:
+                    try:
+                        # Gestisce formati HH:MM:SS, MM:SS o SSSS restituite da Postgres
+                        parts = str(raw_gap).split(':')
+                        if len(parts) >= 3:
+                            m_val = int(parts[-2])
+                            s_val = int(parts[-1])
+                        elif len(parts) == 2:
+                            m_val = int(parts[0])
+                            s_val = int(parts[1])
+                    except (ValueError, IndexError):
+                        m_val, s_val = 0, 0
 
                 col_min, col_sec = c3.columns(2)
                 sel_m = col_min.number_input(f"m_{r['id_rider']}", 0, 59, m_val, step=1, format="%02d", key=f"m_{r['id_rider']}", label_visibility="collapsed")
                 sel_s = col_sec.number_input(f"s_{r['id_rider']}", 0, 59, s_val, step=1, format="%02d", key=f"s_{r['id_rider']}", label_visibility="collapsed")
-                # Formattiamo per il tipo INTERVAL di Postgres
                 current_gap = f"00:{sel_m:02d}:{sel_s:02d}"
 
             # --- IS_DNF ---
@@ -114,16 +119,15 @@ else:
                 "id_rider": r['id_rider'],
                 "id_team": r['id_team'],
                 "rank_stage": nuovo_rank if nuovo_rank > 0 else None,
-                "gap_stage": current_gap, # Formato 00:MM:SS
+                "gap_stage": current_gap,
                 "is_dnf": is_dnf,
-                "updated_at": "now()" # Forza l'aggiornamento del timestamp
+                "updated_at": "now()"
             })
         
         invio = st.form_submit_button("💾 SALVA E AGGIORNA RISULTATI", use_container_width=True, type="primary")
 
     if invio:
         try:
-            # Upsert basato sul vincolo unique_result_stage_rider (id_stage, id_rider)
             response = supabase.table("fact_results").upsert(
                 lista_payload, 
                 on_conflict="id_stage, id_rider"
